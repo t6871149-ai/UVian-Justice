@@ -20,7 +20,7 @@ const LegalDisclaimerOutputSchema = z.object({
 export type LegalDisclaimerOutput = z.infer<typeof LegalDisclaimerOutputSchema>;
 
 export async function generateLegalDisclaimer(): Promise<LegalDisclaimerOutput> {
-  return generateLegalDisclaimerFlow({});
+  return generateLegalDisclaimerFlow();
 }
 
 const prompt = ai.definePrompt({
