@@ -11,7 +11,8 @@ export const firebaseAdmin =
       credential: admin.credential.cert({
         projectId: env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
         clientEmail: env.FIREBASE_CLIENT_EMAIL,
-        privateKey: env.FIREBASE_PRIVATE_KEY,
+        // Replace escaped newlines from the environment variable
+        privateKey: env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
       }),
     },
     "firebase-admin"
