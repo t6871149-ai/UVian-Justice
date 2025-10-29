@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Header } from "./header";
 import { ChatWindow } from "./chat-window";
 import { ChatInput } from "./chat-input";
-import { handleUserQuery, getUserProfile } from "@/actions/chat";
+import { handleUserQuery, getUserProfile, acceptDisclaimer } from "@/actions/chat";
 import { useToast } from "@/hooks/use-toast";
 import type { ChatMessage } from "@/lib/types";
 import { DisclaimerDialog } from "../legal/disclaimer-dialog";
@@ -64,7 +64,7 @@ export function DashboardClient({
   useEffect(() => {
     if (user) {
       startTransition(async () => {
-        const profile = await getUserProfile();
+        const profile = await getUserProfile(user.uid);
         if (profile && !profile.acceptedDisclaimer) {
           setShowDisclaimer(true);
         }
@@ -73,10 +73,21 @@ export function DashboardClient({
   }, [user]);
 
   const onDisclaimerAccept = () => {
-    setShowDisclaimer(false);
+    if(!user) return;
+    startTransition(async () => {
+      const result = await acceptDisclaimer(user.uid);
+       if(result.success) {
+        toast({ title: "Thank you!", description: "You have accepted the disclaimer." });
+        setShowDisclaimer(false);
+      } else {
+        toast({ title: "Error", description: result.error, variant: 'destructive' });
+      }
+    });
   }
 
   const handleSendMessage = (message: string) => {
+    if(!user) return;
+
     const userMessage: ChatMessage = {
       id: "temp-user-" + Date.now(),
       role: "user",
@@ -87,7 +98,7 @@ export function DashboardClient({
     dispatch({ type: "SET_LOADING", payload: true });
 
     startTransition(async () => {
-      const result = await handleUserQuery(message);
+      const result = await handleUserQuery(user.uid, message);
       if (result?.error) {
         toast({
           title: "Error",

@@ -15,10 +15,16 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { signUpWithEmail, signInWithGoogle } from "@/actions/auth";
+import { createUserDocument } from "@/actions/auth";
 import { SignUpSchema } from "@/lib/schemas";
 import { Loader2 } from "lucide-react";
 import { GoogleIcon } from "../icons/google-icon";
+import {
+  createUserWithEmailAndPassword,
+  signInWithPopup,
+  GoogleAuthProvider,
+} from "firebase/auth";
+import { auth } from "@/lib/firebase";
 
 export function SignUpForm() {
   const [isPending, startTransition] = useTransition();
@@ -35,40 +41,63 @@ export function SignUpForm() {
 
   const onSubmit = (values: z.infer<typeof SignUpSchema>) => {
     startTransition(async () => {
-      const result = await signUpWithEmail(values);
-      if (result.error) {
-        toast({
-          title: "Sign Up Failed",
-          description: result.error,
-          variant: "destructive",
+      try {
+        const userCredential = await createUserWithEmailAndPassword(
+          auth,
+          values.email,
+          values.password
+        );
+        const user = userCredential.user;
+
+        await createUserDocument({
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName,
+          photoURL: user.photoURL,
         });
-      } else {
+
         toast({
           title: "Success!",
           description: "Your account has been created.",
         });
         // Redirect is handled by the parent client component
+      } catch (error: any) {
+        toast({
+          title: "Sign Up Failed",
+          description: error.message || "An unexpected error occurred.",
+          variant: "destructive",
+        });
       }
     });
   };
 
   const onGoogleSignIn = () => {
     startTransition(async () => {
-      const result = await signInWithGoogle();
-      if (result.error) {
-        toast({
-          title: "Google Sign-In Failed",
-          description: result.error,
-          variant: "destructive",
+      try {
+        const provider = new GoogleAuthProvider();
+        const userCredential = await signInWithPopup(auth, provider);
+        const user = userCredential.user;
+
+        await createUserDocument({
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName,
+          photoURL: user.photoURL,
         });
-      } else {
+
         toast({
           title: "Success",
           description: "You are now logged in with Google.",
         });
+      } catch (error: any) {
+        toast({
+          title: "Google Sign-In Failed",
+          description: error.message || "Failed to sign in with Google.",
+          variant: "destructive",
+        });
       }
     });
-  }
+  };
 
   return (
     <Form {...form}>

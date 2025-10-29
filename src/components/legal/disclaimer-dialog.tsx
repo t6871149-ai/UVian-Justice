@@ -11,7 +11,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { generateLegalDisclaimer } from "@/ai/flows/generate-legal-disclaimer";
-import { acceptDisclaimer } from "@/actions/chat";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 
@@ -44,15 +43,8 @@ export function DisclaimerDialog({ open, onAccept }: DisclaimerDialogProps) {
   }, [open]);
   
   const handleAccept = () => {
-    startTransition(async () => {
-      const result = await acceptDisclaimer();
-      if(result.success) {
-        toast({ title: "Thank you!", description: "You have accepted the disclaimer." });
-        onAccept();
-      } else {
-        toast({ title: "Error", description: result.error, variant: 'destructive' });
-      }
-    });
+    // The transition is now handled in the parent component
+    onAccept();
   }
 
   return (
