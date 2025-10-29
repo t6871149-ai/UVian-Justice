@@ -42,7 +42,17 @@ export function LoginForm() {
   const onSubmit = (values: z.infer<typeof LoginSchema>) => {
     startTransition(async () => {
       try {
-        await signInWithEmailAndPassword(auth, values.email, values.password);
+        const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
+        const user = userCredential.user;
+
+        // Ensure user document exists
+        await createUserDocument({
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName,
+          photoURL: user.photoURL,
+        });
+
         toast({
           title: "Success",
           description: "You are now logged in.",
@@ -73,7 +83,7 @@ export function LoginForm() {
         const userCredential = await signInWithPopup(auth, provider);
         const user = userCredential.user;
 
-        // Create user document in Firestore
+        // Create or merge user document in Firestore
         await createUserDocument({
           uid: user.uid,
           email: user.email,
