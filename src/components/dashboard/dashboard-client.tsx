@@ -2,7 +2,7 @@
 
 import { useAuth } from "@/context/auth-context";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition, useReducer } from "react";
+import { useEffect, useReducer, useTransition } from "react";
 import { collection, onSnapshot, query, orderBy, doc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
@@ -20,15 +20,16 @@ type State = {
   messages: ChatMessage[];
   isLoading: boolean;
   userProfile: { acceptedDisclaimer?: boolean } | null;
+  isProfileLoading: boolean;
 };
 
 type Action =
   | { type: "SET_MESSAGES"; payload: ChatMessage[] }
   | { type: "SET_LOADING"; payload: boolean }
-  | { type: "SET_USER_PROFILE"; payload: State["userProfile"] };
+  | { type: "SET_USER_PROFILE"; payload: State["userProfile"] }
+  | { type: "SET_PROFILE_LOADING"; payload: boolean };
 
-
-function messagesReducer(state: State, action: Action): State {
+function dashboardReducer(state: State, action: Action): State {
   switch (action.type) {
     case "SET_MESSAGES":
       return { ...state, messages: action.payload };
@@ -36,25 +37,28 @@ function messagesReducer(state: State, action: Action): State {
       return { ...state, isLoading: action.payload };
     case "SET_USER_PROFILE":
       return { ...state, userProfile: action.payload };
+    case "SET_PROFILE_LOADING":
+        return { ...state, isProfileLoading: action.payload };
     default:
       return state;
   }
 }
 
-export default function DashboardClient() {
+export function DashboardClient() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
   const [isQueryPending, startQueryTransition] = useTransition();
   const [isDisclaimerPending, startDisclaimerTransition] = useTransition();
 
-  const [state, dispatch] = useReducer(messagesReducer, {
+  const [state, dispatch] = useReducer(dashboardReducer, {
     messages: [],
-    isLoading: true,
+    isLoading: false,
     userProfile: null,
+    isProfileLoading: true,
   });
 
-  const showDisclaimer = state.userProfile !== null && !state.userProfile.acceptedDisclaimer;
+  const showDisclaimer = !state.isProfileLoading && state.userProfile !== null && !state.userProfile.acceptedDisclaimer;
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -65,21 +69,28 @@ export default function DashboardClient() {
   useEffect(() => {
     if (!user) return;
 
-    dispatch({ type: "SET_LOADING", payload: true });
+    dispatch({ type: "SET_PROFILE_LOADING", payload: true });
 
     // Listen for user profile changes
     const unsubProfile = onSnapshot(doc(db, "users", user.uid), (doc) => {
       if (doc.exists()) {
         dispatch({ type: "SET_USER_PROFILE", payload: doc.data() });
       } else {
-        dispatch({ type: "SET_USER_PROFILE", payload: null });
+        dispatch({ type: "SET_USER_PROFILE", payload: { acceptedDisclaimer: false } });
       }
+      dispatch({ type: "SET_PROFILE_LOADING", payload: false });
+    }, (error) => {
+        console.error("Error fetching user profile:", error);
+        toast({ title: "Error", description: "Could not load your profile.", variant: "destructive"});
+        dispatch({ type: "SET_PROFILE_LOADING", payload: false });
     });
+
 
     // Listen for chat history changes
     const chatCollectionRef = collection(db, `users/${user.uid}/chats`);
     const q = query(chatCollectionRef, orderBy("createdAt", "asc"));
     
+    dispatch({ type: "SET_LOADING", payload: true });
     const unsubMessages = onSnapshot(q, (querySnapshot) => {
       const messages: ChatMessage[] = [];
       querySnapshot.forEach((doc) => {
@@ -121,9 +132,8 @@ export default function DashboardClient() {
   const handleSendMessage = (message: string) => {
     if(!user) return;
 
-    dispatch({ type: "SET_LOADING", payload: true });
-
     startQueryTransition(async () => {
+      dispatch({ type: "SET_LOADING", payload: true });
       const result = await handleUserQuery(user.uid, message);
       if (result?.error) {
         toast({
@@ -137,7 +147,7 @@ export default function DashboardClient() {
     });
   };
 
-  if (authLoading || !user || state.userProfile === null && !state.messages.length) {
+  if (authLoading || !user || state.isProfileLoading) {
     return (
       <div className="flex flex-col h-screen">
         <header className="flex items-center h-16 px-4 border-b shrink-0 md:px-6">
@@ -160,7 +170,7 @@ export default function DashboardClient() {
       <DisclaimerDialog open={showDisclaimer} onAccept={onDisclaimerAccept} isAccepting={isDisclaimerPending} />
       <Header user={user} />
       <main className="flex-1 flex flex-col overflow-hidden">
-        <ChatWindow messages={state.messages} isLoading={state.isLoading && state.messages.length === 0} />
+        <ChatWindow messages={state.messages} isLoading={state.isLoading} />
         <ChatInput
           onSendMessage={handleSendMessage}
           isLoading={isQueryPending}
