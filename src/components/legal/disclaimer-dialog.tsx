@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -11,29 +11,28 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { generateLegalDisclaimer } from "@/ai/flows/generate-legal-disclaimer";
-import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 
 interface DisclaimerDialogProps {
   open: boolean;
   onAccept: () => void;
+  isAccepting: boolean;
 }
 
-export function DisclaimerDialog({ open, onAccept }: DisclaimerDialogProps) {
+export function DisclaimerDialog({ open, onAccept, isAccepting }: DisclaimerDialogProps) {
   const [disclaimerText, setDisclaimerText] = useState("Loading disclaimer...");
   const [isAiLoading, setIsAiLoading] = useState(true);
-  const [isAccepting, startTransition] = useTransition();
-  const { toast } = useToast();
 
   useEffect(() => {
     if (open) {
+      setIsAiLoading(true);
       generateLegalDisclaimer()
         .then((res) => {
           setDisclaimerText(res.disclaimer);
         })
         .catch(() => {
           setDisclaimerText(
-            "Failed to load disclaimer. Please refresh the page."
+            "Failed to load disclaimer. Please try again."
           );
         })
         .finally(() => {
@@ -43,7 +42,6 @@ export function DisclaimerDialog({ open, onAccept }: DisclaimerDialogProps) {
   }, [open]);
   
   const handleAccept = () => {
-    // The transition is now handled in the parent component
     onAccept();
   }
 

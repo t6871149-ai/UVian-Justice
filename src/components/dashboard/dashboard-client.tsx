@@ -3,57 +3,58 @@
 import { useAuth } from "@/context/auth-context";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition, useReducer } from "react";
+import { collection, onSnapshot, query, orderBy, doc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+
 import { Skeleton } from "@/components/ui/skeleton";
 import { Header } from "./header";
 import { ChatWindow } from "./chat-window";
 import { ChatInput } from "./chat-input";
-import { handleUserQuery, getUserProfile, acceptDisclaimer } from "@/actions/chat";
+import { handleUserQuery, acceptDisclaimer } from "@/actions/chat";
 import { useToast } from "@/hooks/use-toast";
 import type { ChatMessage } from "@/lib/types";
 import { DisclaimerDialog } from "../legal/disclaimer-dialog";
+import type { User } from "firebase/auth";
 
 type State = {
   messages: ChatMessage[];
   isLoading: boolean;
+  userProfile: { acceptedDisclaimer?: boolean } | null;
 };
 
 type Action =
-  | { type: "ADD_MESSAGE"; payload: ChatMessage }
+  | { type: "SET_MESSAGES"; payload: ChatMessage[] }
   | { type: "SET_LOADING"; payload: boolean }
-  | { type: "SET_MESSAGES"; payload: ChatMessage[] };
+  | { type: "SET_USER_PROFILE"; payload: State["userProfile"] };
+
 
 function messagesReducer(state: State, action: Action): State {
   switch (action.type) {
-    case "ADD_MESSAGE":
-      return { ...state, messages: [...state.messages, action.payload] };
+    case "SET_MESSAGES":
+      return { ...state, messages: action.payload };
     case "SET_LOADING":
       return { ...state, isLoading: action.payload };
-    case "SET_MESSAGES":
-        return {...state, messages: action.payload };
+    case "SET_USER_PROFILE":
+      return { ...state, userProfile: action.payload };
     default:
       return state;
   }
 }
 
-export function DashboardClient({
-  initialMessages,
-}: {
-  initialMessages: ChatMessage[];
-}) {
+export default function DashboardClient() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
-  const [isPending, startTransition] = useTransition();
-  const [showDisclaimer, setShowDisclaimer] = useState(false);
+  const [isQueryPending, startQueryTransition] = useTransition();
+  const [isDisclaimerPending, startDisclaimerTransition] = useTransition();
 
   const [state, dispatch] = useReducer(messagesReducer, {
-    messages: initialMessages,
-    isLoading: false,
+    messages: [],
+    isLoading: true,
+    userProfile: null,
   });
 
-  useEffect(() => {
-    dispatch({ type: "SET_MESSAGES", payload: initialMessages });
-  }, [initialMessages]);
+  const showDisclaimer = state.userProfile !== null && !state.userProfile.acceptedDisclaimer;
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -62,23 +63,55 @@ export function DashboardClient({
   }, [user, authLoading, router]);
 
   useEffect(() => {
-    if (user) {
-      startTransition(async () => {
-        const profile = await getUserProfile(user.uid);
-        if (profile && !profile.acceptedDisclaimer) {
-          setShowDisclaimer(true);
-        }
+    if (!user) return;
+
+    dispatch({ type: "SET_LOADING", payload: true });
+
+    // Listen for user profile changes
+    const unsubProfile = onSnapshot(doc(db, "users", user.uid), (doc) => {
+      if (doc.exists()) {
+        dispatch({ type: "SET_USER_PROFILE", payload: doc.data() });
+      } else {
+        dispatch({ type: "SET_USER_PROFILE", payload: null });
+      }
+    });
+
+    // Listen for chat history changes
+    const chatCollectionRef = collection(db, `users/${user.uid}/chats`);
+    const q = query(chatCollectionRef, orderBy("createdAt", "asc"));
+    
+    const unsubMessages = onSnapshot(q, (querySnapshot) => {
+      const messages: ChatMessage[] = [];
+      querySnapshot.forEach((doc) => {
+         const data = doc.data();
+         messages.push({ 
+            id: doc.id, 
+            ...data,
+            createdAt: (data.createdAt as any)?.toDate() ?? new Date(),
+         } as ChatMessage);
       });
-    }
-  }, [user]);
+      dispatch({ type: "SET_MESSAGES", payload: messages });
+      dispatch({ type: "SET_LOADING", payload: false });
+    }, (error) => {
+        console.error("Error fetching chat history:", error);
+        toast({ title: "Error", description: "Could not load chat history.", variant: "destructive"});
+        dispatch({ type: "SET_LOADING", payload: false });
+    });
+
+
+    return () => {
+      unsubProfile();
+      unsubMessages();
+    };
+  }, [user, toast]);
+
 
   const onDisclaimerAccept = () => {
     if(!user) return;
-    startTransition(async () => {
+    startDisclaimerTransition(async () => {
       const result = await acceptDisclaimer(user.uid);
        if(result.success) {
         toast({ title: "Thank you!", description: "You have accepted the disclaimer." });
-        setShowDisclaimer(false);
       } else {
         toast({ title: "Error", description: result.error, variant: 'destructive' });
       }
@@ -88,16 +121,9 @@ export function DashboardClient({
   const handleSendMessage = (message: string) => {
     if(!user) return;
 
-    const userMessage: ChatMessage = {
-      id: "temp-user-" + Date.now(),
-      role: "user",
-      content: message,
-      createdAt: new Date(),
-    };
-    dispatch({ type: "ADD_MESSAGE", payload: userMessage });
     dispatch({ type: "SET_LOADING", payload: true });
 
-    startTransition(async () => {
+    startQueryTransition(async () => {
       const result = await handleUserQuery(user.uid, message);
       if (result?.error) {
         toast({
@@ -106,13 +132,12 @@ export function DashboardClient({
           variant: "destructive",
         });
       }
-      // The page will be revalidated, so we don't need to add the AI message manually
-      // It will come in through the `initialMessages` prop update.
+      // Real-time listener will update messages, just need to turn off loading
       dispatch({ type: "SET_LOADING", payload: false });
     });
   };
 
-  if (authLoading || !user) {
+  if (authLoading || !user || state.userProfile === null && !state.messages.length) {
     return (
       <div className="flex flex-col h-screen">
         <header className="flex items-center h-16 px-4 border-b shrink-0 md:px-6">
@@ -132,13 +157,13 @@ export function DashboardClient({
 
   return (
     <div className="flex flex-col h-screen">
-      <DisclaimerDialog open={showDisclaimer} onAccept={onDisclaimerAccept} />
+      <DisclaimerDialog open={showDisclaimer} onAccept={onDisclaimerAccept} isAccepting={isDisclaimerPending} />
       <Header user={user} />
       <main className="flex-1 flex flex-col overflow-hidden">
-        <ChatWindow messages={state.messages} isLoading={state.isLoading} />
+        <ChatWindow messages={state.messages} isLoading={state.isLoading && state.messages.length === 0} />
         <ChatInput
           onSendMessage={handleSendMessage}
-          isLoading={isPending || state.isLoading}
+          isLoading={isQueryPending}
         />
       </main>
     </div>

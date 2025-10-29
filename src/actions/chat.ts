@@ -5,16 +5,11 @@ import {
   collection,
   addDoc,
   serverTimestamp,
-  query,
-  orderBy,
-  getDocs,
   doc,
   updateDoc,
-  getDoc,
 } from "firebase/firestore";
 import { revalidatePath } from "next/cache";
 import { provideInitialLegalAdvice } from "@/ai/flows/provide-initial-legal-advice";
-import type { ChatMessage } from "@/lib/types";
 
 // Note: This function now requires the UID to be passed in.
 export async function handleUserQuery(userId: string, queryText: string) {
@@ -30,7 +25,7 @@ export async function handleUserQuery(userId: string, queryText: string) {
       createdAt: serverTimestamp(),
     };
     const chatCollectionRef = collection(db, `users/${userId}/chats`);
-    await addDoc(chatCollectionRef, userMessage);
+    const userMessageRef = await addDoc(chatCollectionRef, userMessage);
 
     // 2. Get AI response
     const aiResponseData = await provideInitialLegalAdvice({ query: queryText });
@@ -40,10 +35,11 @@ export async function handleUserQuery(userId: string, queryText: string) {
       role: "assistant" as const,
       content: aiResponseData,
       createdAt: serverTimestamp(),
+      userMessageId: userMessageRef.id
     };
     await addDoc(chatCollectionRef, aiMessage);
 
-    revalidatePath("/dashboard");
+    // No revalidatePath needed, client will update via snapshot listener
     return { success: true };
   } catch (error) {
     console.error("Error handling user query:", error);
@@ -51,43 +47,6 @@ export async function handleUserQuery(userId: string, queryText: string) {
   }
 }
 
-// Note: This function now requires the UID to be passed in.
-export async function getChatHistory(userId: string): Promise<ChatMessage[]> {
-  if (!userId) {
-    return [];
-  }
-
-  try {
-    const chatCollectionRef = collection(db, `users/${userId}/chats`);
-    const q = query(chatCollectionRef, orderBy("createdAt", "asc"));
-    const querySnapshot = await getDocs(q);
-
-    const messages: ChatMessage[] = [];
-    querySnapshot.forEach((doc) => {
-      messages.push({ id: doc.id, ...doc.data() } as ChatMessage);
-    });
-
-    return messages;
-  } catch (error) {
-    console.error("Error fetching chat history:", error);
-    return [];
-  }
-}
-
-// Note: This function now requires the UID to be passed in.
-export async function getUserProfile(userId: string) {
-  if (!userId) {
-    return null;
-  }
-  try {
-    const userDocRef = doc(db, 'users', userId);
-    const userDoc = await getDoc(userDocRef);
-    return userDoc.exists() ? userDoc.data() : null;
-  } catch (error) {
-    console.error("Error fetching user profile:", error);
-    return null;
-  }
-}
 
 // Note: This function now requires the UID to be passed in.
 export async function acceptDisclaimer(userId: string) {
@@ -100,7 +59,7 @@ export async function acceptDisclaimer(userId: string) {
     await updateDoc(userDocRef, {
       acceptedDisclaimer: true,
     });
-    revalidatePath("/dashboard");
+    // No revalidatePath needed, client will update via snapshot listener
     return { success: true };
   } catch (error) {
     console.error("Error accepting disclaimer:", error);
