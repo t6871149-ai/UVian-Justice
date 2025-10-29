@@ -7,3 +7,9 @@ export interface ChatMessage {
   content: string | ProvideInitialLegalAdviceOutput;
   createdAt: Timestamp | Date;
 }
+
+export type SecurityRuleContext = {
+    path: string;
+    operation: 'get' | 'list' | 'create' | 'update' | 'delete';
+    requestResourceData?: any;
+};

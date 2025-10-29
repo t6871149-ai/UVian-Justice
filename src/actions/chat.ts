@@ -10,6 +10,8 @@ import {
 } from "firebase/firestore";
 import { revalidatePath } from "next/cache";
 import { provideInitialLegalAdvice } from "@/ai/flows/provide-initial-legal-advice";
+import { errorEmitter } from "@/lib/error-emitter";
+import { FirestorePermissionError } from "@/lib/firebase-errors";
 
 // Note: This function now requires the UID to be passed in.
 export async function handleUserQuery(userId: string, queryText: string) {
@@ -17,17 +19,17 @@ export async function handleUserQuery(userId: string, queryText: string) {
     return { error: "User not authenticated." };
   }
 
-  try {
-    // 1. Save user message to Firestore
-    const userMessage = {
-      role: "user" as const,
-      content: queryText,
-      createdAt: serverTimestamp(),
-    };
-    const chatCollectionRef = collection(db, `users/${userId}/chats`);
-    const userMessageRef = await addDoc(chatCollectionRef, userMessage);
-
-    // 2. Get AI response
+  const userMessage = {
+    role: "user" as const,
+    content: queryText,
+    createdAt: serverTimestamp(),
+  };
+  const chatCollectionRef = collection(db, `users/${userId}/chats`);
+  
+  // This is an optimistic update, so we don't await it on the server.
+  // We'll catch permission errors and report them.
+  addDoc(chatCollectionRef, userMessage).then(async (userMessageRef) => {
+     // 2. Get AI response
     const aiResponseData = await provideInitialLegalAdvice({ query: queryText });
     
     // 3. Save AI response to Firestore
@@ -37,14 +39,25 @@ export async function handleUserQuery(userId: string, queryText: string) {
       createdAt: serverTimestamp(),
       userMessageId: userMessageRef.id
     };
-    await addDoc(chatCollectionRef, aiMessage);
+    const aiMessageRef = collection(db, `users/${userId}/chats`);
+    addDoc(aiMessageRef, aiMessage).catch((serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: aiMessageRef.path,
+            operation: 'create',
+            requestResourceData: aiMessage,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    });
+  }).catch((serverError) => {
+      const permissionError = new FirestorePermissionError({
+          path: chatCollectionRef.path,
+          operation: 'create',
+          requestResourceData: userMessage,
+      });
+      errorEmitter.emit('permission-error', permissionError);
+  });
 
-    // No revalidatePath needed, client will update via snapshot listener
-    return { success: true };
-  } catch (error) {
-    console.error("Error handling user query:", error);
-    return { error: "Failed to process your query." };
-  }
+  return { success: true };
 }
 
 
@@ -54,15 +67,17 @@ export async function acceptDisclaimer(userId: string) {
     return { error: "User not authenticated." };
   }
 
-  try {
-    const userDocRef = doc(db, 'users', userId);
-    await updateDoc(userDocRef, {
-      acceptedDisclaimer: true,
-    });
-    // No revalidatePath needed, client will update via snapshot listener
-    return { success: true };
-  } catch (error) {
-    console.error("Error accepting disclaimer:", error);
-    return { error: "Failed to update your profile." };
-  }
+  const userDocRef = doc(db, 'users', userId);
+  const updateData = { acceptedDisclaimer: true };
+
+  updateDoc(userDocRef, updateData).catch((serverError) => {
+      const permissionError = new FirestorePermissionError({
+          path: userDocRef.path,
+          operation: 'update',
+          requestResourceData: updateData,
+      });
+      errorEmitter.emit('permission-error', permissionError);
+  });
+  
+  return { success: true };
 }
