@@ -4,7 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Nyay Sahayak",
+  title: "UVian Justice - Nyay Sahayak",
   description: "Your AI legal assistant for Indian Law",
 };
 

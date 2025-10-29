@@ -34,7 +34,7 @@ export function AuthLayout({
           <div className="grid gap-2 text-center">
             <div className="flex items-center justify-center gap-2">
                 <Logo className="h-8 w-8 text-primary"/>
-                <h1 className="text-3xl font-bold font-headline">Nyay Sahayak</h1>
+                <h1 className="text-3xl font-bold font-headline">UVian Justice - Nyay Sahayak</h1>
             </div>
             <p className="text-balance text-muted-foreground mt-2">
                 Your AI-powered legal assistant for Indian Law

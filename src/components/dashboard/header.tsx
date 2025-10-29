@@ -40,7 +40,7 @@ export function Header({ user }: { user: User }) {
     <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6 py-4">
       <Link href="/dashboard" className="flex items-center gap-2">
         <Logo className="h-6 w-6 text-primary" />
-        <h1 className="text-xl font-semibold font-headline">Nyay Sahayak</h1>
+        <h1 className="text-xl font-semibold font-headline">UVian Justice - Nyay Sahayak</h1>
       </Link>
       <div className="ml-auto flex items-center gap-4">
         <DropdownMenu>
