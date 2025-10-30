@@ -49,7 +49,7 @@ export function DisclaimerDialog({ open, onAccept, isAccepting }: DisclaimerDial
     <AlertDialog open={open}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Legal Disclaimer</AlertDialogTitle>
+          <AlertDialogTitle>Before you continue...</AlertDialogTitle>
           <AlertDialogDescription>
             {isAiLoading ? <Loader2 className="h-4 w-4 animate-spin my-4" /> : disclaimerText}
           </AlertDialogDescription>
