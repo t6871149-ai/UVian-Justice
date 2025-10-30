@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useAuth } from "@/context/auth-context";
@@ -30,6 +31,7 @@ type Action =
   | { type: "MESSAGES_LOADED" }
   | { type: "SET_LOADING"; payload: boolean }
   | { type: "SET_USER_PROFILE"; payload: State["userProfile"] }
+  | { type: "ACCEPT_DISCLAIMER" }
   | { type: "SET_PROFILE_LOADING"; payload: boolean };
 
 function dashboardReducer(state: State, action: Action): State {
@@ -42,6 +44,8 @@ function dashboardReducer(state: State, action: Action): State {
       return { ...state, isLoading: action.payload };
     case "SET_USER_PROFILE":
       return { ...state, userProfile: action.payload, isProfileLoading: false };
+    case "ACCEPT_DISCLAIMER":
+      return { ...state, userProfile: { ...state.userProfile, acceptedDisclaimer: true } };
     case "SET_PROFILE_LOADING":
         return { ...state, isProfileLoading: action.payload };
     default:
@@ -133,6 +137,10 @@ export function DashboardClient() {
 
   const onDisclaimerAccept = () => {
     if(!user) return;
+
+    // Optimistically update the UI
+    dispatch({ type: "ACCEPT_DISCLAIMER" });
+    
     startDisclaimerTransition(async () => {
       const result = await acceptDisclaimer(user.uid);
        if(result.success) {
