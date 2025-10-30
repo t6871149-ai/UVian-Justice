@@ -57,6 +57,8 @@ export async function handleUserQuery(userId: string, queryText: string) {
       errorEmitter.emit('permission-error', permissionError);
   });
 
+  // We revalidate the path to hint to Next.js to refetch data, but the UI update is optimistic via snapshots.
+  revalidatePath('/dashboard');
   return { success: true };
 }
 
