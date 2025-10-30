@@ -3,7 +3,7 @@
 
 import { useAuth } from "@/context/auth-context";
 import { useRouter } from "next/navigation";
-import { useEffect, useReducer, useTransition } from "react";
+import { useEffect, useReducer, useTransition, useRef } from "react";
 import { collection, onSnapshot, query, orderBy, doc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
@@ -65,6 +65,9 @@ export function DashboardClient() {
   });
 
   const showDisclaimer = !state.isProfileLoading && state.userProfile !== null && !state.userProfile.acceptedDisclaimer;
+  
+  // Ref to track if it's the initial load of messages
+  const isInitialMessagesLoad = useRef(true);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -83,6 +86,7 @@ export function DashboardClient() {
       if (doc.exists()) {
         dispatch({ type: "SET_USER_PROFILE", payload: doc.data() });
       } else {
+        // This might happen for a brief moment for new users.
         dispatch({ type: "SET_USER_PROFILE", payload: { acceptedDisclaimer: false } });
       }
       dispatch({ type: "SET_PROFILE_LOADING", payload: false });
@@ -97,7 +101,6 @@ export function DashboardClient() {
 
 
     // Listen for chat history changes
-    dispatch({ type: "SET_MESSAGES_LOADING", payload: true });
     const chatCollectionRef = collection(db, `users/${user.uid}/chats`);
     const q = query(chatCollectionRef, orderBy("createdAt", "asc"));
     
@@ -112,6 +115,12 @@ export function DashboardClient() {
          } as ChatMessage);
       });
       dispatch({ type: "SET_MESSAGES", payload: messages });
+      // On the very first load, if there are no messages, we should stop loading.
+      if (isInitialMessagesLoad.current && querySnapshot.empty) {
+        dispatch({ type: "SET_MESSAGES_LOADING", payload: false });
+      }
+      isInitialMessagesLoad.current = false;
+
     }, (error) => {
         const permissionError = new FirestorePermissionError({
             path: chatCollectionRef.path,
@@ -133,9 +142,13 @@ export function DashboardClient() {
     if(!user) return;
 
     startDisclaimerTransition(async () => {
-      dispatch({ type: "ACCEPT_DISCLAIMER" });
-      await acceptDisclaimer(user.uid);
-      toast({ title: "Thank you!", description: "You have accepted the disclaimer." });
+      // Optimistically update the UI
+      dispatch({ type: "ACCEPT_DISCLAIMER" }); 
+      
+      const result = await acceptDisclaimer(user.uid);
+      if (result.success) {
+        toast({ title: "Thank you!", description: "You have accepted the disclaimer." });
+      }
     });
   }
 
@@ -147,7 +160,7 @@ export function DashboardClient() {
     });
   };
 
-  if (authLoading || !user || state.isProfileLoading) {
+  if (authLoading || !user || state.isProfileLoading || state.isMessagesLoading) {
     return (
       <div className="flex flex-col h-screen">
         <header className="flex items-center h-16 px-4 border-b shrink-0 md:px-6">
