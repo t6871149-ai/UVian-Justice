@@ -38,9 +38,13 @@ export async function handleUserQuery(userId: string, queryText: string) {
             requestResourceData: userMessage,
         });
         errorEmitter.emit('permission-error', permissionError);
-        // Re-throw to be caught by the outer try-catch
-        throw serverError;
+        // Do not re-throw; allow the process to continue if possible, or fail gracefully.
     });
+    
+    // If saving the user message failed, we shouldn't proceed.
+    if (!userMessageRef) {
+        throw new Error("Failed to save user message.");
+    }
 
     // 2. Get AI response
     const aiResponseData = await provideInitialLegalAdvice({ query: queryText });
