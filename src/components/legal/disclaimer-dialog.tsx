@@ -25,7 +25,7 @@ All responses and claims made by this app are based solely on the Constitution o
 This app does NOT provide official legal advice, and no lawyer–client relationship is created by using it.
 For any legal dispute, case, or matter requiring professional judgment, please consult a qualified advocate or legal expert.
 
-Use this app at your own discretion — we aim to educate, not adjudicate.`;
+Use this app at your own discretion — WE AIM TO EDUCATE, NOT ADJUDICATE.`;
 
 export function DisclaimerDialog({ open, onAccept, isAccepting }: DisclaimerDialogProps) {
   
@@ -39,7 +39,7 @@ export function DisclaimerDialog({ open, onAccept, isAccepting }: DisclaimerDial
         <AlertDialogHeader>
           <AlertDialogTitle>Before you continue...</AlertDialogTitle>
           <AlertDialogDescription className="whitespace-pre-wrap">
-            {disclaimerText}
+            {"⚖️ Disclaimer: Read Before You Proceed! ⚠️\n\nThis is a test version of an AI-powered Legal Assistant, designed for informational and educational purposes only.\nAll responses and claims made by this app are based solely on the Constitution of India and existing Indian laws.\n\nThis app does "}<strong>NOT</strong>{" provide official legal advice, and no lawyer–client relationship is created by using it.\nFor any legal dispute, case, or matter requiring professional judgment, please consult a qualified advocate or legal expert.\n\nUse this app at your own discretion — "}<strong>WE AIM TO EDUCATE, NOT ADJUDICATE.</strong>
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
