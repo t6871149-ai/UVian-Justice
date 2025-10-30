@@ -116,11 +116,10 @@ export function DashboardClient() {
       });
       dispatch({ type: "SET_MESSAGES", payload: messages });
       // On the very first load, if there are no messages, we should stop loading.
-      if (isInitialMessagesLoad.current && querySnapshot.empty) {
+      if (isInitialMessagesLoad.current) {
         dispatch({ type: "SET_MESSAGES_LOADING", payload: false });
+        isInitialMessagesLoad.current = false;
       }
-      isInitialMessagesLoad.current = false;
-
     }, (error) => {
         const permissionError = new FirestorePermissionError({
             path: chatCollectionRef.path,
