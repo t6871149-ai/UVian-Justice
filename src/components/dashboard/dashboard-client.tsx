@@ -85,6 +85,7 @@ export function DashboardClient() {
       } else {
         dispatch({ type: "SET_USER_PROFILE", payload: { acceptedDisclaimer: false } });
       }
+      dispatch({ type: "SET_PROFILE_LOADING", payload: false });
     }, (error) => {
         const permissionError = new FirestorePermissionError({
             path: userDocRef.path,
@@ -132,8 +133,8 @@ export function DashboardClient() {
     if(!user) return;
 
     startDisclaimerTransition(async () => {
-      await acceptDisclaimer(user.uid);
       dispatch({ type: "ACCEPT_DISCLAIMER" });
+      await acceptDisclaimer(user.uid);
       toast({ title: "Thank you!", description: "You have accepted the disclaimer." });
     });
   }
@@ -169,7 +170,7 @@ export function DashboardClient() {
       <DisclaimerDialog open={showDisclaimer} onAccept={onDisclaimerAccept} isAccepting={isDisclaimerPending} />
       <Header user={user} />
       <main className="flex-1 flex flex-col overflow-hidden">
-        <ChatWindow messages={state.messages} isLoading={state.isMessagesLoading && state.messages.length === 0} />
+        <ChatWindow messages={state.messages} isLoading={isQueryPending} />
         <ChatInput
           onSendMessage={handleSendMessage}
           isLoading={isQueryPending}
