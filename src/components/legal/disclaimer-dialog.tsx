@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -10,7 +9,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { generateLegalDisclaimer } from "@/ai/flows/generate-legal-disclaimer";
 import { Loader2 } from "lucide-react";
 
 interface DisclaimerDialogProps {
@@ -19,27 +17,17 @@ interface DisclaimerDialogProps {
   isAccepting: boolean;
 }
 
-export function DisclaimerDialog({ open, onAccept, isAccepting }: DisclaimerDialogProps) {
-  const [disclaimerText, setDisclaimerText] = useState("Loading disclaimer...");
-  const [isAiLoading, setIsAiLoading] = useState(true);
+const disclaimerText = `⚖️ Disclaimer: Read Before You Proceed! ⚠️
 
-  useEffect(() => {
-    if (open) {
-      setIsAiLoading(true);
-      generateLegalDisclaimer()
-        .then((res) => {
-          setDisclaimerText(res.disclaimer);
-        })
-        .catch(() => {
-          setDisclaimerText(
-            "Failed to load disclaimer. Please try again."
-          );
-        })
-        .finally(() => {
-          setIsAiLoading(false);
-        });
-    }
-  }, [open]);
+This is a test version of an AI-powered Legal Assistant, designed for informational and educational purposes only.
+All responses and claims made by this app are based solely on the Constitution of India and existing Indian laws.
+
+This app does NOT provide official legal advice, and no lawyer–client relationship is created by using it.
+For any legal dispute, case, or matter requiring professional judgment, please consult a qualified advocate or legal expert.
+
+Use this app at your own discretion — we aim to educate, not adjudicate.`;
+
+export function DisclaimerDialog({ open, onAccept, isAccepting }: DisclaimerDialogProps) {
   
   const handleAccept = () => {
     onAccept();
@@ -50,12 +38,12 @@ export function DisclaimerDialog({ open, onAccept, isAccepting }: DisclaimerDial
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Before you continue...</AlertDialogTitle>
-          <AlertDialogDescription>
-            {isAiLoading ? <Loader2 className="h-4 w-4 animate-spin my-4" /> : disclaimerText}
+          <AlertDialogDescription className="whitespace-pre-wrap">
+            {disclaimerText}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogAction onClick={handleAccept} disabled={isAiLoading || isAccepting}>
+          <AlertDialogAction onClick={handleAccept} disabled={isAccepting}>
             {isAccepting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             I Understand and Accept
           </AlertDialogAction>
