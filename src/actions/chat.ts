@@ -25,13 +25,14 @@ export async function handleUserQuery(userId: string, queryText: string) {
     createdAt: serverTimestamp(),
   };
   const chatCollectionRef = collection(db, `users/${userId}/chats`);
-  
-  // This is an optimistic update, so we don't await it on the server.
-  // We'll catch permission errors and report them.
-  addDoc(chatCollectionRef, userMessage).then(async (userMessageRef) => {
-     // 2. Get AI response
+
+  try {
+    // 1. Save user's message and wait for it to be saved.
+    const userMessageRef = await addDoc(chatCollectionRef, userMessage);
+
+    // 2. Get AI response
     const aiResponseData = await provideInitialLegalAdvice({ query: queryText });
-    
+
     // 3. Save AI response to Firestore
     const aiMessage = {
       role: "assistant" as const,
@@ -39,23 +40,27 @@ export async function handleUserQuery(userId: string, queryText: string) {
       createdAt: serverTimestamp(),
       userMessageId: userMessageRef.id
     };
-    const aiMessageRef = collection(db, `users/${userId}/chats`);
-    addDoc(aiMessageRef, aiMessage).catch((serverError) => {
+    
+    // We don't need to await this on the server for the user's experience.
+    // The snapshot listener will pick it up. We still catch potential errors.
+    addDoc(chatCollectionRef, aiMessage).catch((serverError) => {
         const permissionError = new FirestorePermissionError({
-            path: aiMessageRef.path,
+            path: chatCollectionRef.path,
             operation: 'create',
             requestResourceData: aiMessage,
         });
         errorEmitter.emit('permission-error', permissionError);
     });
-  }).catch((serverError) => {
-      const permissionError = new FirestorePermissionError({
-          path: chatCollectionRef.path,
-          operation: 'create',
-          requestResourceData: userMessage,
-      });
-      errorEmitter.emit('permission-error', permissionError);
-  });
+
+  } catch (error: any) {
+    // This will catch errors from adding the user message.
+    const permissionError = new FirestorePermissionError({
+        path: chatCollectionRef.path,
+        operation: 'create',
+        requestResourceData: userMessage,
+    });
+    errorEmitter.emit('permission-error', permissionError);
+  }
 
   // We revalidate the path to hint to Next.js to refetch data, but the UI update is optimistic via snapshots.
   revalidatePath('/dashboard');

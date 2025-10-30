@@ -21,15 +21,14 @@ import { FirestorePermissionError } from "@/lib/firebase-errors";
 
 type State = {
   messages: ChatMessage[];
-  isLoading: boolean;
+  isMessagesLoading: boolean;
   userProfile: { acceptedDisclaimer?: boolean } | null;
   isProfileLoading: boolean;
 };
 
 type Action =
   | { type: "SET_MESSAGES"; payload: ChatMessage[] }
-  | { type: "MESSAGES_LOADED" }
-  | { type: "SET_LOADING"; payload: boolean }
+  | { type: "SET_MESSAGES_LOADING"; payload: boolean }
   | { type: "SET_USER_PROFILE"; payload: State["userProfile"] }
   | { type: "ACCEPT_DISCLAIMER" }
   | { type: "SET_PROFILE_LOADING"; payload: boolean };
@@ -37,11 +36,9 @@ type Action =
 function dashboardReducer(state: State, action: Action): State {
   switch (action.type) {
     case "SET_MESSAGES":
-      return { ...state, messages: action.payload };
-    case "MESSAGES_LOADED":
-        return { ...state, isLoading: false };
-    case "SET_LOADING":
-      return { ...state, isLoading: action.payload };
+      return { ...state, messages: action.payload, isMessagesLoading: false };
+    case "SET_MESSAGES_LOADING":
+        return { ...state, isMessagesLoading: action.payload };
     case "SET_USER_PROFILE":
       return { ...state, userProfile: action.payload, isProfileLoading: false };
     case "ACCEPT_DISCLAIMER":
@@ -62,7 +59,7 @@ export function DashboardClient() {
 
   const [state, dispatch] = useReducer(dashboardReducer, {
     messages: [],
-    isLoading: true,
+    isMessagesLoading: true,
     userProfile: null,
     isProfileLoading: true,
   });
@@ -86,8 +83,6 @@ export function DashboardClient() {
       if (doc.exists()) {
         dispatch({ type: "SET_USER_PROFILE", payload: doc.data() });
       } else {
-        // If doc doesn't exist, it might be a pending write or a permission error.
-        // We set profile to a default and stop loading.
         dispatch({ type: "SET_USER_PROFILE", payload: { acceptedDisclaimer: false } });
       }
     }, (error) => {
@@ -101,6 +96,7 @@ export function DashboardClient() {
 
 
     // Listen for chat history changes
+    dispatch({ type: "SET_MESSAGES_LOADING", payload: true });
     const chatCollectionRef = collection(db, `users/${user.uid}/chats`);
     const q = query(chatCollectionRef, orderBy("createdAt", "asc"));
     
@@ -115,16 +111,13 @@ export function DashboardClient() {
          } as ChatMessage);
       });
       dispatch({ type: "SET_MESSAGES", payload: messages });
-      // If we get a snapshot (even an empty one), we can consider messages loaded.
-      dispatch({ type: "MESSAGES_LOADED" });
     }, (error) => {
         const permissionError = new FirestorePermissionError({
             path: chatCollectionRef.path,
             operation: 'list',
         });
         errorEmitter.emit('permission-error', permissionError);
-        // We can still stop loading, even if there's an error. The UI will just show no messages.
-        dispatch({ type: "MESSAGES_LOADED" });
+        dispatch({ type: "SET_MESSAGES_LOADING", payload: false });
     });
 
 
@@ -138,16 +131,10 @@ export function DashboardClient() {
   const onDisclaimerAccept = () => {
     if(!user) return;
 
-    // Optimistically update the UI
-    dispatch({ type: "ACCEPT_DISCLAIMER" });
-    
     startDisclaimerTransition(async () => {
-      const result = await acceptDisclaimer(user.uid);
-       if(result.success) {
-        toast({ title: "Thank you!", description: "You have accepted the disclaimer." });
-      } else {
-        // Errors are now handled by the global error emitter
-      }
+      await acceptDisclaimer(user.uid);
+      dispatch({ type: "ACCEPT_DISCLAIMER" });
+      toast({ title: "Thank you!", description: "You have accepted the disclaimer." });
     });
   }
 
@@ -155,10 +142,7 @@ export function DashboardClient() {
     if(!user) return;
 
     startQueryTransition(async () => {
-      // Optimistically set loading, but the server action is non-blocking
-      dispatch({ type: "SET_LOADING", payload: true });
       await handleUserQuery(user.uid, message);
-      // Let the snapshot listener turn off loading state
     });
   };
 
@@ -185,10 +169,10 @@ export function DashboardClient() {
       <DisclaimerDialog open={showDisclaimer} onAccept={onDisclaimerAccept} isAccepting={isDisclaimerPending} />
       <Header user={user} />
       <main className="flex-1 flex flex-col overflow-hidden">
-        <ChatWindow messages={state.messages} isLoading={state.isLoading} />
+        <ChatWindow messages={state.messages} isLoading={state.isMessagesLoading && state.messages.length === 0} />
         <ChatInput
           onSendMessage={handleSendMessage}
-          isLoading={isQueryPending || state.isLoading}
+          isLoading={isQueryPending}
         />
       </main>
     </div>
