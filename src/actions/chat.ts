@@ -31,20 +31,7 @@ export async function handleUserQuery(userId: string, queryText: string) {
 
   try {
     // 1. Save user's message and get its reference
-    const userMessageRef = await addDoc(chatCollectionRef, userMessage).catch((serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: chatCollectionRef.path,
-            operation: 'create',
-            requestResourceData: userMessage,
-        });
-        errorEmitter.emit('permission-error', permissionError);
-        // Do not re-throw; allow the process to continue if possible, or fail gracefully.
-    });
-    
-    // If saving the user message failed, we shouldn't proceed.
-    if (!userMessageRef) {
-        throw new Error("Failed to save user message.");
-    }
+    const userMessageRef = await addDoc(chatCollectionRef, userMessage);
 
     // 2. Get AI response
     const aiResponseData = await provideInitialLegalAdvice({ query: queryText });
@@ -58,14 +45,7 @@ export async function handleUserQuery(userId: string, queryText: string) {
     };
 
     // 4. Save AI response to Firestore, linking it to the user's message
-    addDoc(chatCollectionRef, aiMessage).catch((serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: chatCollectionRef.path,
-            operation: 'create',
-            requestResourceData: aiMessage,
-        });
-        errorEmitter.emit('permission-error', permissionError);
-    });
+    await addDoc(chatCollectionRef, aiMessage);
 
     // Revalidate the path to hint at data changes
     revalidatePath('/dashboard');
@@ -73,16 +53,14 @@ export async function handleUserQuery(userId: string, queryText: string) {
 
   } catch (error: any) {
     console.error("Error handling user query:", error);
-    // Don't re-emit a permission error if it was already handled and re-thrown
-    if (!(error instanceof FirestorePermissionError)) {
-        // To ensure we still try to provide a permission error if that's the cause
-        const permissionError = new FirestorePermissionError({
-            path: chatCollectionRef.path,
-            operation: 'create',
-            requestResourceData: userMessage, // It might have failed on the user message part
-        });
-        errorEmitter.emit('permission-error', permissionError);
-    }
+    // This is a generic error handler. We can try to create a permission error
+    // context if one occurs during this complex operation.
+    const permissionError = new FirestorePermissionError({
+        path: chatCollectionRef.path,
+        operation: 'create',
+        requestResourceData: userMessage, // It might have failed on the user message part
+    });
+    errorEmitter.emit('permission-error', permissionError);
     
     return { error: "Failed to process your query." };
   }
@@ -98,15 +76,17 @@ export async function acceptDisclaimer(userId: string) {
   const userDocRef = doc(db, 'users', userId);
   const updateData = { acceptedDisclaimer: true };
 
-  updateDoc(userDocRef, updateData).catch((serverError) => {
+  try {
+    await updateDoc(userDocRef, updateData);
+    revalidatePath('/dashboard');
+    return { success: true };
+  } catch (serverError: any) {
       const permissionError = new FirestorePermissionError({
           path: userDocRef.path,
           operation: 'update',
           requestResourceData: updateData,
       });
       errorEmitter.emit('permission-error', permissionError);
-  });
-  
-  revalidatePath('/dashboard');
-  return { success: true };
+      return { error: "Failed to accept disclaimer." };
+  }
 }
