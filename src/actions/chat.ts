@@ -30,14 +30,14 @@ export async function createCase(userId: string, title: string, details: string)
         const docRef = await addDoc(caseCollectionRef, caseData);
         revalidatePath('/dashboard');
         return { success: true, caseId: docRef.id };
-    } catch (serverError) {
+    } catch (serverError: any) {
         const permissionError = new FirestorePermissionError({
             path: caseCollectionRef.path,
             operation: 'create',
             requestResourceData: caseData,
         });
         errorEmitter.emit('permission-error', permissionError);
-        return { error: "Failed to create case due to a database error." };
+        return { error: serverError.message || "Failed to create case due to a database error." };
     }
 }
 
@@ -66,7 +66,7 @@ export async function handleUserQuery(userId: string, caseId: string, queryText:
     // 3. Save the AI's response
     const aiMessage = {
         role: "assistant" as const,
-        content: aiResponse,
+        content: aiResponse as any, // Cast to any to handle both string and object
         createdAt: serverTimestamp(),
     };
     await addDoc(messagesCollectionRef, aiMessage);
