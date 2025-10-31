@@ -10,7 +10,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Header } from "./header";
 import { ChatWindow } from "./chat-window";
 import { ChatInput } from "./chat-input";
-import { handleUserQuery, acceptDisclaimer, createCase } from "@/actions/chat";
+import { handleUserQuery, createCase } from "@/actions/chat";
+import { acceptDisclaimer } from "@/actions/auth";
 import { useToast } from "@/hooks/use-toast";
 import type { ChatMessage, Case } from "@/lib/types";
 import { DisclaimerDialog } from "../legal/disclaimer-dialog";
@@ -157,10 +158,12 @@ export function DashboardClient() {
   const onDisclaimerAccept = () => {
     if(!user) return;
     startDisclaimerTransition(async () => {
-      dispatch({ type: "ACCEPT_DISCLAIMER" }); 
       const result = await acceptDisclaimer(user.uid);
       if (result.success) {
+        dispatch({ type: "ACCEPT_DISCLAIMER" }); 
         toast({ title: "Thank you!", description: "You have accepted the disclaimer." });
+      } else {
+        toast({ title: "Error", description: result.error, variant: "destructive" });
       }
     });
   }

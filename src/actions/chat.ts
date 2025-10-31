@@ -86,28 +86,3 @@ export async function handleUserQuery(userId: string, caseId: string, queryText:
     return { error: "An error occurred while processing your request." };
   }
 }
-
-
-export async function acceptDisclaimer(userId: string) {
-  if (!userId) {
-    return { error: "User not authenticated." };
-  }
-
-  const userDocRef = doc(db, 'users', userId);
-  const updateData = { acceptedDisclaimer: true };
-
-  updateDoc(userDocRef, updateData)
-    .then(() => {
-        revalidatePath('/dashboard');
-    })
-    .catch((serverError) => {
-      const permissionError = new FirestorePermissionError({
-          path: userDocRef.path,
-          operation: 'update',
-          requestResourceData: updateData,
-      });
-      errorEmitter.emit('permission-error', permissionError);
-  });
-  
-  return { success: true };
-}

@@ -2,7 +2,7 @@
 
 import { signOut } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, updateDoc } from "firebase/firestore";
 import { revalidatePath } from "next/cache";
 import { errorEmitter } from "@/lib/error-emitter";
 import { FirestorePermissionError } from "@/lib/firebase-errors";
@@ -40,5 +40,28 @@ export async function signOutUser() {
     return { success: "Signed out successfully!" };
   } catch (error: any) {
     return { error: "Failed to sign out." };
+  }
+}
+
+export async function acceptDisclaimer(userId: string) {
+  if (!userId) {
+    return { error: "User not authenticated." };
+  }
+
+  const userDocRef = doc(db, 'users', userId);
+  const updateData = { acceptedDisclaimer: true };
+
+  try {
+    await updateDoc(userDocRef, updateData);
+    revalidatePath('/dashboard');
+    return { success: true };
+  } catch (serverError: any) {
+      const permissionError = new FirestorePermissionError({
+          path: userDocRef.path,
+          operation: 'update',
+          requestResourceData: updateData,
+      });
+      errorEmitter.emit('permission-error', permissionError);
+      return { error: "Failed to update disclaimer status." };
   }
 }
