@@ -1,42 +1,30 @@
 "use server";
 
-import { auth, db } from "@/lib/firebase";
-import {
-  collection,
-  addDoc,
-  serverTimestamp,
-} from "firebase/firestore";
+import { db } from "@/lib/firebase-server"; // Use ADMIN DB for writes
+import { FieldValue } from "firebase-admin/firestore";
 import { revalidatePath } from "next/cache";
 import { provideInitialLegalAdvice } from "@/ai/flows/provide-initial-legal-advice";
-import { errorEmitter } from "@/lib/error-emitter";
-import { FirestorePermissionError } from "@/lib/firebase-errors";
 
 export async function createCase(userId: string, title: string, details: string) {
     if (!userId) {
         return { error: "User not authenticated." };
     }
 
-    const caseCollectionRef = collection(db, `users/${userId}/cases`);
+    const caseCollectionRef = db.collection(`users/${userId}/cases`);
     const caseData = {
         title,
         details,
-        createdAt: serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
         userId,
     };
     
     try {
-        const docRef = await addDoc(caseCollectionRef, caseData);
+        const docRef = await caseCollectionRef.add(caseData);
         revalidatePath('/dashboard');
         return { success: true, caseId: docRef.id };
     } catch (serverError: any) {
-        const permissionError = new FirestorePermissionError({
-            path: caseCollectionRef.path,
-            operation: 'create',
-            requestResourceData: caseData,
-        });
-        errorEmitter.emit('permission-error', permissionError);
-        // Re-throw the original error to make it visible in the dev overlay
-        throw serverError;
+       console.error("Error creating case:", serverError);
+       throw serverError;
     }
 }
 
@@ -46,25 +34,22 @@ export async function handleUserQuery(userId: string, caseId: string, queryText:
     return { error: "User or case not identified." };
   }
 
-  const messagesCollectionRef = collection(db, `users/${userId}/cases/${caseId}/messages`);
+  const messagesCollectionRef = db.collection(`users/${userId}/cases/${caseId}/messages`);
   
   const userMessage = {
     role: "user" as const,
     content: queryText,
-    createdAt: serverTimestamp(),
+    createdAt: FieldValue.serverTimestamp(),
   };
 
-  // Use proper error handling for user message creation
-  addDoc(messagesCollectionRef, userMessage).catch((serverError) => {
-    const permissionError = new FirestorePermissionError({
-        path: messagesCollectionRef.path,
-        operation: 'create',
-        requestResourceData: userMessage
-    });
-    errorEmitter.emit('permission-error', permissionError);
-  });
-
-  revalidatePath(`/dashboard?caseId=${caseId}`);
+  // The server action will now handle writing the user message
+  try {
+    await messagesCollectionRef.add(userMessage);
+    revalidatePath(`/dashboard?caseId=${caseId}`);
+  } catch (serverError: any) {
+    console.error("Error creating user message:", serverError);
+    // Don't rethrow here, as we want to continue to the AI call
+  }
 
   // We can still proceed with the AI call optimistically
   const aiResponse = await provideInitialLegalAdvice({ query: queryText });
@@ -72,19 +57,17 @@ export async function handleUserQuery(userId: string, caseId: string, queryText:
   const aiMessage = {
       role: "assistant" as const,
       content: aiResponse as any,
-      createdAt: serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
   };
   
-  // Use proper error handling for AI message creation
-  addDoc(messagesCollectionRef, aiMessage).catch((serverError) => {
-      const permissionError = new FirestorePermissionError({
-        path: messagesCollectionRef.path,
-        operation: 'create',
-        requestResourceData: aiMessage
-      });
-      errorEmitter.emit('permission-error', permissionError);
-  });
+  // The server action will also handle writing the AI message
+  try {
+    await messagesCollectionRef.add(aiMessage);
+    revalidatePath(`/dashboard?caseId=${caseId}`);
+  } catch (serverError: any) {
+     console.error("Error creating AI message:", serverError);
+     // Don't rethrow, just log it. The user will see their message.
+  }
 
-  revalidatePath(`/dashboard?caseId=${caseId}`);
   return { success: true };
 }

@@ -1,36 +1,30 @@
 "use server";
 
 import { signOut } from "firebase/auth";
-import { auth, db } from "@/lib/firebase";
-import { doc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { auth } from "@/lib/firebase"; // Keep client auth for signOut
+import { db } from "@/lib/firebase-server"; // Use ADMIN DB for writes
+import { FieldValue } from "firebase-admin/firestore";
 import { revalidatePath } from "next/cache";
-import { errorEmitter } from "@/lib/error-emitter";
-import { FirestorePermissionError } from "@/lib/firebase-errors";
 
-// This function is kept as a server action, but will be called from the client after a successful signup or login.
+// This function now uses the Admin SDK to create the user document securely.
 export async function createUserDocument(user: { uid: string; email: string | null; displayName?: string | null; photoURL?: string | null; }) {
-    const userDocRef = doc(db, "users", user.uid);
+    const userDocRef = db.collection("users").doc(user.uid);
     const userData = {
       uid: user.uid,
       email: user.email,
       displayName: user.displayName || null,
       photoURL: user.photoURL || null,
-      createdAt: serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
       acceptedDisclaimer: false,
     };
 
     try {
-        await setDoc(userDocRef, userData, { merge: true });
+        await userDocRef.set(userData, { merge: true });
         revalidatePath('/dashboard');
         return { success: "User document created/updated successfully!" };
     } catch (serverError: any) {
-        const permissionError = new FirestorePermissionError({
-            path: userDocRef.path,
-            operation: 'create',
-            requestResourceData: userData,
-        });
-        errorEmitter.emit('permission-error', permissionError);
-        // Re-throw the original error to make it visible in the dev overlay
+        console.error("Error creating user document:", serverError);
+        // Re-throwing the error to make it visible.
         throw serverError;
     }
 }
@@ -51,22 +45,16 @@ export async function acceptDisclaimer(userId: string) {
     return { error: "User not authenticated." };
   }
 
-  const userDocRef = doc(db, 'users', userId);
+  const userDocRef = db.collection('users').doc(userId);
   const updateData = { acceptedDisclaimer: true };
 
-  updateDoc(userDocRef, updateData)
-    .then(() => {
-      revalidatePath('/dashboard');
-    })
-    .catch((serverError: any) => {
-      const permissionError = new FirestorePermissionError({
-        path: userDocRef.path,
-        operation: 'update',
-        requestResourceData: updateData,
-      });
-      errorEmitter.emit('permission-error', permissionError);
-    });
-
-  // Return success optimistically, error will be handled by the listener
-  return { success: true };
+  try {
+    await userDocRef.update(updateData);
+    revalidatePath('/dashboard');
+    return { success: true };
+  } catch (serverError: any) {
+    console.error("Error accepting disclaimer:", serverError);
+    // Re-throwing the error to make it visible.
+    throw serverError;
+  }
 }
