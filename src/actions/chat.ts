@@ -37,7 +37,7 @@ export async function createCase(userId: string, title: string, details: string)
             requestResourceData: caseData,
         });
         errorEmitter.emit('permission-error', permissionError);
-        return { error: serverError.message || "Failed to create case due to a database error." };
+        return { error: "Failed to create case. " + serverError.message };
     }
 }
 
