@@ -13,12 +13,12 @@ interface ChatMessageAIProps {
     simpleAnswer: string;
     relevantLegalSections: string[];
     nextStep: string;
-  };
+  } | string;
 }
 
 export function ChatMessageAI({ content }: ChatMessageAIProps) {
-  if (typeof content === 'string') {
-    // Handle legacy string content
+  if (typeof content === 'string' || !content.simpleAnswer) {
+    // Handle legacy string content or incomplete objects
     return (
       <div className="flex items-start gap-4">
         <Avatar>
@@ -29,7 +29,7 @@ export function ChatMessageAI({ content }: ChatMessageAIProps) {
         <div className="grid gap-1 flex-1">
           <p className="font-semibold">Nyay Sahayak AI</p>
           <div className="bg-card p-3 rounded-lg border">
-            <p>{content}</p>
+            <p>{typeof content === 'string' ? content : JSON.stringify(content)}</p>
           </div>
         </div>
       </div>

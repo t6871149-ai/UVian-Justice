@@ -5,8 +5,6 @@ import {
   collection,
   addDoc,
   serverTimestamp,
-  doc,
-  updateDoc,
 } from "firebase/firestore";
 import { revalidatePath } from "next/cache";
 import { provideInitialLegalAdvice } from "@/ai/flows/provide-initial-legal-advice";
@@ -57,7 +55,7 @@ export async function handleUserQuery(userId: string, caseId: string, queryText:
 
   try {
     // 1. Save the user's message
-    const userMessageRef = await addDoc(messagesCollectionRef, userMessage);
+    await addDoc(messagesCollectionRef, userMessage);
     revalidatePath(`/dashboard?caseId=${caseId}`);
 
     // 2. Call the AI
