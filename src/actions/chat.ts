@@ -26,22 +26,19 @@ export async function createCase(userId: string, title: string, details: string)
         userId,
     };
     
-    const docRef = await addDoc(caseCollectionRef, caseData).catch((serverError) => {
+    try {
+        const docRef = await addDoc(caseCollectionRef, caseData);
+        revalidatePath('/dashboard');
+        return { success: true, caseId: docRef.id };
+    } catch (serverError) {
         const permissionError = new FirestorePermissionError({
             path: caseCollectionRef.path,
             operation: 'create',
             requestResourceData: caseData,
         });
         errorEmitter.emit('permission-error', permissionError);
-        return null;
-    });
-
-    if (!docRef) {
-        return { error: "Failed to create case." };
+        return { error: "Failed to create case due to a database error." };
     }
-
-    revalidatePath('/dashboard');
-    return { success: true, caseId: docRef.id };
 }
 
 
