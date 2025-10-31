@@ -35,7 +35,8 @@ export async function createCase(userId: string, title: string, details: string)
             requestResourceData: caseData,
         });
         errorEmitter.emit('permission-error', permissionError);
-        return { error: "Failed to create case. " + serverError.message };
+        // Re-throw the original error to make it visible in the dev overlay
+        throw serverError;
     }
 }
 
@@ -53,7 +54,7 @@ export async function handleUserQuery(userId: string, caseId: string, queryText:
     createdAt: serverTimestamp(),
   };
 
-  // No try-catch here, we want errors to be handled by the global listener
+  // Use proper error handling for user message creation
   addDoc(messagesCollectionRef, userMessage).catch((serverError) => {
     const permissionError = new FirestorePermissionError({
         path: messagesCollectionRef.path,
@@ -74,6 +75,7 @@ export async function handleUserQuery(userId: string, caseId: string, queryText:
       createdAt: serverTimestamp(),
   };
   
+  // Use proper error handling for AI message creation
   addDoc(messagesCollectionRef, aiMessage).catch((serverError) => {
       const permissionError = new FirestorePermissionError({
         path: messagesCollectionRef.path,

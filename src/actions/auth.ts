@@ -1,4 +1,3 @@
-
 "use server";
 
 import { signOut } from "firebase/auth";
@@ -21,20 +20,18 @@ export async function createUserDocument(user: { uid: string; email: string | nu
     };
 
     try {
-        // Use await to ensure the database operation completes or throws an error.
         await setDoc(userDocRef, userData, { merge: true });
         revalidatePath('/dashboard');
         return { success: "User document created/updated successfully!" };
     } catch (serverError: any) {
-        // Construct the detailed permission error and emit it.
         const permissionError = new FirestorePermissionError({
             path: userDocRef.path,
-            operation: 'create', // This covers both create and merge/update for this logic
+            operation: 'create',
             requestResourceData: userData,
         });
         errorEmitter.emit('permission-error', permissionError);
-        // We return an error object here to be more explicit, although the primary error handling is via the emitter.
-        return { error: `Failed to create/update user document: ${serverError.message}` };
+        // Re-throw the original error to make it visible in the dev overlay
+        throw serverError;
     }
 }
 
