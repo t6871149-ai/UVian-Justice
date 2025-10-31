@@ -1,4 +1,3 @@
-
 "use server";
 
 import { auth, db } from "@/lib/firebase";
@@ -14,36 +13,81 @@ import { provideInitialLegalAdvice } from "@/ai/flows/provide-initial-legal-advi
 import { errorEmitter } from "@/lib/error-emitter";
 import { FirestorePermissionError } from "@/lib/firebase-errors";
 
-// Note: This function now requires the UID to be passed in.
-export async function handleUserQuery(userId: string, queryText: string) {
-  if (!userId) {
-    return { error: "User not authenticated." };
-  }
-  // This is a placeholder as the AI flow is not fully integrated yet.
-  console.log("User query received:", queryText);
+export async function createCase(userId: string, title: string, details: string) {
+    if (!userId) {
+        return { error: "User not authenticated." };
+    }
 
-  const chatCollectionRef = collection(db, `users/${userId}/chats`);
+    const caseCollectionRef = collection(db, `users/${userId}/cases`);
+    const caseData = {
+        title,
+        details,
+        createdAt: serverTimestamp(),
+        userId,
+    };
+    
+    try {
+        const docRef = await addDoc(caseCollectionRef, caseData);
+        revalidatePath('/dashboard');
+        return { success: true, caseId: docRef.id };
+    } catch (serverError: any) {
+        const permissionError = new FirestorePermissionError({
+            path: caseCollectionRef.path,
+            operation: 'create',
+            requestResourceData: caseData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        return { error: "Failed to create case." };
+    }
+}
+
+
+export async function handleUserQuery(userId: string, caseId: string, queryText: string) {
+  if (!userId || !caseId) {
+    return { error: "User or case not identified." };
+  }
+
+  const messagesCollectionRef = collection(db, `users/${userId}/cases/${caseId}/messages`);
+  
   const userMessage = {
     role: "user" as const,
     content: queryText,
     createdAt: serverTimestamp(),
   };
 
-  addDoc(chatCollectionRef, userMessage).catch((serverError) => {
+  try {
+    // 1. Save the user's message
+    await addDoc(messagesCollectionRef, userMessage);
+    revalidatePath(`/dashboard?caseId=${caseId}`);
+
+    // 2. Call the AI
+    const aiResponse = await provideInitialLegalAdvice({ query: queryText });
+
+    // 3. Save the AI's response
+    const aiMessage = {
+        role: "assistant" as const,
+        content: aiResponse,
+        createdAt: serverTimestamp(),
+    };
+    await addDoc(messagesCollectionRef, aiMessage);
+
+    revalidatePath(`/dashboard?caseId=${caseId}`);
+    return { success: true };
+
+  } catch (error: any) {
+    console.error("Error in handleUserQuery:", error);
+    // Determine the path for the error message
+    const path = error.path || messagesCollectionRef.path;
     const permissionError = new FirestorePermissionError({
-      path: chatCollectionRef.path,
-      operation: 'create',
-      requestResourceData: userMessage,
+        path: path,
+        operation: 'create', // Or determine based on error
     });
     errorEmitter.emit('permission-error', permissionError);
-  });
-
-  revalidatePath('/dashboard');
-  return { success: true };
+    return { error: "An error occurred while processing your request." };
+  }
 }
 
 
-// Note: This function now requires the UID to be passed in.
 export async function acceptDisclaimer(userId: string) {
   if (!userId) {
     return { error: "User not authenticated." };
@@ -52,17 +96,18 @@ export async function acceptDisclaimer(userId: string) {
   const userDocRef = doc(db, 'users', userId);
   const updateData = { acceptedDisclaimer: true };
 
-  try {
-    await updateDoc(userDocRef, updateData);
-    revalidatePath('/dashboard');
-    return { success: true };
-  } catch (serverError: any) {
+  updateDoc(userDocRef, updateData)
+    .then(() => {
+        revalidatePath('/dashboard');
+    })
+    .catch((serverError) => {
       const permissionError = new FirestorePermissionError({
           path: userDocRef.path,
           operation: 'update',
           requestResourceData: updateData,
       });
       errorEmitter.emit('permission-error', permissionError);
-      return { error: "Failed to accept disclaimer." };
-  }
+  });
+  
+  return { success: true };
 }

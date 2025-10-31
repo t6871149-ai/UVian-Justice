@@ -1,9 +1,8 @@
-
 "use client";
 
 import { useAuth } from "@/context/auth-context";
-import { useRouter } from "next/navigation";
-import { useEffect, useReducer, useTransition, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import React, { useEffect, useReducer, useTransition, useRef, useState } from "react";
 import { collection, onSnapshot, query, orderBy, doc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
@@ -11,24 +10,32 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Header } from "./header";
 import { ChatWindow } from "./chat-window";
 import { ChatInput } from "./chat-input";
-import { handleUserQuery, acceptDisclaimer } from "@/actions/chat";
+import { handleUserQuery, acceptDisclaimer, createCase } from "@/actions/chat";
 import { useToast } from "@/hooks/use-toast";
-import type { ChatMessage } from "@/lib/types";
+import type { ChatMessage, Case } from "@/lib/types";
 import { DisclaimerDialog } from "../legal/disclaimer-dialog";
-import type { User } from "firebase/auth";
 import { errorEmitter } from "@/lib/error-emitter";
 import { FirestorePermissionError } from "@/lib/firebase-errors";
+import { SidebarProvider, Sidebar, SidebarInset, SidebarContent, SidebarHeader } from "@/components/ui/sidebar";
+import { CaseSidebar } from "./case-sidebar";
+import { PlusCircle } from "lucide-react";
+import { NewCaseDialog } from "./new-case-dialog";
+import { Button } from "../ui/button";
 
 type State = {
   messages: ChatMessage[];
+  cases: Case[];
   isMessagesLoading: boolean;
+  isCasesLoading: boolean;
   userProfile: { acceptedDisclaimer?: boolean } | null;
   isProfileLoading: boolean;
 };
 
 type Action =
   | { type: "SET_MESSAGES"; payload: ChatMessage[] }
+  | { type: "SET_CASES"; payload: Case[] }
   | { type: "SET_MESSAGES_LOADING"; payload: boolean }
+  | { type: "SET_CASES_LOADING"; payload: boolean }
   | { type: "SET_USER_PROFILE"; payload: State["userProfile"] }
   | { type: "ACCEPT_DISCLAIMER" }
   | { type: "SET_PROFILE_LOADING"; payload: boolean };
@@ -37,8 +44,12 @@ function dashboardReducer(state: State, action: Action): State {
   switch (action.type) {
     case "SET_MESSAGES":
       return { ...state, messages: action.payload, isMessagesLoading: false };
+    case "SET_CASES":
+      return { ...state, cases: action.payload, isCasesLoading: false };
     case "SET_MESSAGES_LOADING":
         return { ...state, isMessagesLoading: action.payload };
+    case "SET_CASES_LOADING":
+        return { ...state, isCasesLoading: action.payload };
     case "SET_USER_PROFILE":
       return { ...state, userProfile: action.payload, isProfileLoading: false };
     case "ACCEPT_DISCLAIMER":
@@ -53,22 +64,26 @@ function dashboardReducer(state: State, action: Action): State {
 export function DashboardClient() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const [isQueryPending, startQueryTransition] = useTransition();
   const [isDisclaimerPending, startDisclaimerTransition] = useTransition();
+  const [isNewCasePending, startNewCaseTransition] = useTransition();
 
   const [state, dispatch] = useReducer(dashboardReducer, {
     messages: [],
+    cases: [],
     isMessagesLoading: true,
+    isCasesLoading: true,
     userProfile: null,
     isProfileLoading: true,
   });
 
+  const [isNewCaseDialogOpen, setNewCaseDialogOpen] = useState(false);
+  const selectedCaseId = searchParams.get("caseId");
+
   const showDisclaimer = !state.isProfileLoading && state.userProfile !== null && !state.userProfile.acceptedDisclaimer;
   
-  // Ref to track if it's the initial load of messages
-  const isInitialMessagesLoad = useRef(true);
-
   useEffect(() => {
     if (!authLoading && !user) {
       router.replace("/");
@@ -79,71 +94,70 @@ export function DashboardClient() {
     if (!user) return;
 
     dispatch({ type: "SET_PROFILE_LOADING", payload: true });
+    dispatch({ type: "SET_CASES_LOADING", payload: true });
 
-    // Listen for user profile changes
     const userDocRef = doc(db, "users", user.uid);
     const unsubProfile = onSnapshot(userDocRef, (doc) => {
-      if (doc.exists()) {
-        dispatch({ type: "SET_USER_PROFILE", payload: doc.data() });
-      } else {
-        // This might happen for a brief moment for new users.
-        dispatch({ type: "SET_USER_PROFILE", payload: { acceptedDisclaimer: false } });
-      }
-      dispatch({ type: "SET_PROFILE_LOADING", payload: false });
+      dispatch({ type: "SET_USER_PROFILE", payload: doc.exists() ? doc.data() : { acceptedDisclaimer: false } });
     }, (error) => {
-        const permissionError = new FirestorePermissionError({
-            path: userDocRef.path,
-            operation: 'get',
-        });
+        const permissionError = new FirestorePermissionError({ path: userDocRef.path, operation: 'get' });
         errorEmitter.emit('permission-error', permissionError);
         dispatch({ type: "SET_PROFILE_LOADING", payload: false });
     });
 
-
-    // Listen for chat history changes
-    const chatCollectionRef = collection(db, `users/${user.uid}/chats`);
-    const q = query(chatCollectionRef, orderBy("createdAt", "asc"));
-    
-    const unsubMessages = onSnapshot(q, (querySnapshot) => {
-      const messages: ChatMessage[] = [];
-      querySnapshot.forEach((doc) => {
-         const data = doc.data();
-         messages.push({ 
-            id: doc.id, 
-            ...data,
-            createdAt: (data.createdAt as any)?.toDate() ?? new Date(),
-         } as ChatMessage);
-      });
-      dispatch({ type: "SET_MESSAGES", payload: messages });
-      // On the very first load, if there are no messages, we should stop loading.
-      if (isInitialMessagesLoad.current) {
-        dispatch({ type: "SET_MESSAGES_LOADING", payload: false });
-        isInitialMessagesLoad.current = false;
-      }
+    const caseCollectionRef = collection(db, `users/${user.uid}/cases`);
+    const caseQuery = query(caseCollectionRef, orderBy("createdAt", "desc"));
+    const unsubCases = onSnapshot(caseQuery, (snapshot) => {
+        const cases: Case[] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Case));
+        dispatch({ type: "SET_CASES", payload: cases });
+        if (!selectedCaseId && cases.length > 0) {
+            router.replace(`/dashboard?caseId=${cases[0].id}`);
+        }
     }, (error) => {
-        const permissionError = new FirestorePermissionError({
-            path: chatCollectionRef.path,
-            operation: 'list',
-        });
+        const permissionError = new FirestorePermissionError({ path: caseCollectionRef.path, operation: 'list' });
+        errorEmitter.emit('permission-error', permissionError);
+        dispatch({ type: "SET_CASES_LOADING", payload: false });
+    });
+
+    return () => {
+      unsubProfile();
+      unsubCases();
+    };
+  }, [user, router, selectedCaseId]);
+
+  useEffect(() => {
+    if (!user || !selectedCaseId) {
+        dispatch({ type: "SET_MESSAGES", payload: [] });
+        dispatch({ type: "SET_MESSAGES_LOADING", payload: false });
+        return;
+    };
+
+    dispatch({ type: "SET_MESSAGES_LOADING", payload: true });
+    
+    const messagesCollectionRef = collection(db, `users/${user.uid}/cases/${selectedCaseId}/messages`);
+    const messagesQuery = query(messagesCollectionRef, orderBy("createdAt", "asc"));
+    
+    const unsubMessages = onSnapshot(messagesQuery, (snapshot) => {
+      const messages: ChatMessage[] = snapshot.docs.map(doc => ({ 
+        id: doc.id, 
+        ...doc.data(),
+        createdAt: (doc.data().createdAt as any)?.toDate() ?? new Date(),
+      } as ChatMessage));
+      dispatch({ type: "SET_MESSAGES", payload: messages });
+    }, (error) => {
+        const permissionError = new FirestorePermissionError({ path: messagesCollectionRef.path, operation: 'list' });
         errorEmitter.emit('permission-error', permissionError);
         dispatch({ type: "SET_MESSAGES_LOADING", payload: false });
     });
 
-
-    return () => {
-      unsubProfile();
-      unsubMessages();
-    };
-  }, [user, toast]);
+    return () => unsubMessages();
+  }, [user, selectedCaseId]);
 
 
   const onDisclaimerAccept = () => {
     if(!user) return;
-
     startDisclaimerTransition(async () => {
-      // Optimistically update the UI
       dispatch({ type: "ACCEPT_DISCLAIMER" }); 
-      
       const result = await acceptDisclaimer(user.uid);
       if (result.success) {
         toast({ title: "Thank you!", description: "You have accepted the disclaimer." });
@@ -151,15 +165,29 @@ export function DashboardClient() {
     });
   }
 
+  const handleNewCase = (title: string, details: string) => {
+    if (!user) return;
+    startNewCaseTransition(async () => {
+        const result = await createCase(user.uid, title, details);
+        if (result.success && result.caseId) {
+            toast({ title: "Case Created", description: `The case "${title}" has been created.` });
+            setNewCaseDialogOpen(false);
+            router.push(`/dashboard?caseId=${result.caseId}`);
+        } else {
+            toast({ title: "Error", description: result.error, variant: "destructive" });
+        }
+    });
+  }
+
   const handleSendMessage = (message: string) => {
-    if(!user) return;
+    if(!user || !selectedCaseId) return;
 
     startQueryTransition(async () => {
-      await handleUserQuery(user.uid, message);
+      await handleUserQuery(user.uid, selectedCaseId, message);
     });
   };
 
-  if (authLoading || !user || state.isProfileLoading || state.isMessagesLoading) {
+  if (authLoading || !user || state.isProfileLoading) {
     return (
       <div className="flex flex-col h-screen">
         <header className="flex items-center h-16 px-4 border-b shrink-0 md:px-6">
@@ -178,16 +206,45 @@ export function DashboardClient() {
   }
 
   return (
-    <div className="flex flex-col h-screen">
-      <DisclaimerDialog open={showDisclaimer} onAccept={onDisclaimerAccept} isAccepting={isDisclaimerPending} />
-      <Header user={user} />
-      <main className="flex-1 flex flex-col overflow-hidden">
-        <ChatWindow messages={state.messages} isLoading={isQueryPending} />
-        <ChatInput
-          onSendMessage={handleSendMessage}
-          isLoading={isQueryPending}
+    <SidebarProvider>
+      <div className="flex flex-col h-screen">
+        <DisclaimerDialog open={showDisclaimer} onAccept={onDisclaimerAccept} isAccepting={isDisclaimerPending} />
+        <NewCaseDialog 
+            open={isNewCaseDialogOpen} 
+            onOpenChange={setNewCaseDialogOpen} 
+            onSubmit={handleNewCase}
+            isCreating={isNewCasePending}
         />
-      </main>
-    </div>
+        <Header user={user} />
+        <div className="flex-1 flex overflow-hidden">
+            <Sidebar>
+                <SidebarContent className="p-0">
+                    <SidebarHeader className="p-2">
+                        <Button variant="outline" onClick={() => setNewCaseDialogOpen(true)}>
+                            <PlusCircle className="mr-2"/>
+                            New Case
+                        </Button>
+                    </SidebarHeader>
+                    <CaseSidebar cases={state.cases} selectedCaseId={selectedCaseId} isLoading={state.isCasesLoading} />
+                </SidebarContent>
+            </Sidebar>
+            <SidebarInset className="flex flex-col">
+              <main className="flex-1 flex flex-col overflow-hidden">
+                  <ChatWindow 
+                      messages={state.messages} 
+                      isLoading={isQueryPending || state.isMessagesLoading} 
+                      caseSelected={!!selectedCaseId}
+                      onNewCase={() => setNewCaseDialogOpen(true)}
+                  />
+                  <ChatInput
+                      onSendMessage={handleSendMessage}
+                      isLoading={isQueryPending}
+                      disabled={!selectedCaseId || isQueryPending}
+                  />
+              </main>
+            </SidebarInset>
+        </div>
+      </div>
+    </SidebarProvider>
   );
 }

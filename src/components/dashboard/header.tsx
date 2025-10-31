@@ -17,6 +17,7 @@ import { Logo } from "../icons/logo";
 import { signOutUser } from '@/actions/auth';
 import { useToast } from '@/hooks/use-toast';
 import { LifeBuoy, LogOut, User as UserIcon } from 'lucide-react';
+import { SidebarTrigger } from '../ui/sidebar';
 
 export function Header({ user }: { user: User }) {
   const [isPending, startTransition] = useTransition();
@@ -37,10 +38,11 @@ export function Header({ user }: { user: User }) {
   }
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6 py-4">
+    <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background px-4 sm:px-6">
+      <SidebarTrigger className="md:hidden"/>
       <Link href="/dashboard" className="flex items-center gap-2">
         <Logo className="h-6 w-6 text-primary" />
-        <h1 className="text-xl font-semibold font-headline">UVian Justice - Nyay Sahayak</h1>
+        <h1 className="text-xl font-semibold font-headline hidden md:block">UVian Justice - Nyay Sahayak</h1>
       </Link>
       <div className="ml-auto flex items-center gap-4">
         <DropdownMenu>
