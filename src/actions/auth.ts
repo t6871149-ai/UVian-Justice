@@ -26,11 +26,12 @@ export async function createUserDocument(user: { uid: string; email: string | nu
     } catch (serverError: any) {
         const permissionError = new FirestorePermissionError({
             path: userDocRef.path,
-            operation: 'create', // or 'update' if we could distinguish
+            operation: 'create', // This covers both create and merge/update for this logic
             requestResourceData: userData,
         });
         errorEmitter.emit('permission-error', permissionError);
-        return { error: `Failed to create user document: ${serverError.message}` };
+        // We return an error object here to be more explicit, although the primary error handling is via the emitter.
+        return { error: `Failed to create/update user document: ${serverError.message}` };
     }
 }
 
