@@ -51,17 +51,19 @@ export async function acceptDisclaimer(userId: string) {
   const userDocRef = doc(db, 'users', userId);
   const updateData = { acceptedDisclaimer: true };
 
-  try {
-    await updateDoc(userDocRef, updateData);
-    revalidatePath('/dashboard');
-    return { success: true };
-  } catch (serverError: any) {
+  updateDoc(userDocRef, updateData)
+    .then(() => {
+      revalidatePath('/dashboard');
+    })
+    .catch((serverError: any) => {
       const permissionError = new FirestorePermissionError({
-          path: userDocRef.path,
-          operation: 'update',
-          requestResourceData: updateData,
+        path: userDocRef.path,
+        operation: 'update',
+        requestResourceData: updateData,
       });
       errorEmitter.emit('permission-error', permissionError);
-      return { error: "Failed to update disclaimer status." };
-  }
+    });
+
+  // Return success optimistically, error will be handled by the listener
+  return { success: true };
 }
