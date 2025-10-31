@@ -26,19 +26,22 @@ export async function createCase(userId: string, title: string, details: string)
         userId,
     };
     
-    try {
-        const docRef = await addDoc(caseCollectionRef, caseData);
-        revalidatePath('/dashboard');
-        return { success: true, caseId: docRef.id };
-    } catch (serverError: any) {
+    const docRef = await addDoc(caseCollectionRef, caseData).catch((serverError) => {
         const permissionError = new FirestorePermissionError({
             path: caseCollectionRef.path,
             operation: 'create',
             requestResourceData: caseData,
         });
         errorEmitter.emit('permission-error', permissionError);
+        return null;
+    });
+
+    if (!docRef) {
         return { error: "Failed to create case." };
     }
+
+    revalidatePath('/dashboard');
+    return { success: true, caseId: docRef.id };
 }
 
 
@@ -57,7 +60,7 @@ export async function handleUserQuery(userId: string, caseId: string, queryText:
 
   try {
     // 1. Save the user's message
-    await addDoc(messagesCollectionRef, userMessage);
+    const userMessageRef = await addDoc(messagesCollectionRef, userMessage);
     revalidatePath(`/dashboard?caseId=${caseId}`);
 
     // 2. Call the AI
@@ -77,10 +80,10 @@ export async function handleUserQuery(userId: string, caseId: string, queryText:
   } catch (error: any) {
     console.error("Error in handleUserQuery:", error);
     // Determine the path for the error message
-    const path = error.path || messagesCollectionRef.path;
+    const path = `users/${userId}/cases/${caseId}/messages`;
     const permissionError = new FirestorePermissionError({
         path: path,
-        operation: 'create', // Or determine based on error
+        operation: 'create',
     });
     errorEmitter.emit('permission-error', permissionError);
     return { error: "An error occurred while processing your request." };
