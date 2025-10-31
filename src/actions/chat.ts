@@ -53,34 +53,36 @@ export async function handleUserQuery(userId: string, caseId: string, queryText:
     createdAt: serverTimestamp(),
   };
 
-  try {
-    // 1. Save the user's message
-    await addDoc(messagesCollectionRef, userMessage);
-    revalidatePath(`/dashboard?caseId=${caseId}`);
-
-    // 2. Call the AI
-    const aiResponse = await provideInitialLegalAdvice({ query: queryText });
-
-    // 3. Save the AI's response
-    const aiMessage = {
-        role: "assistant" as const,
-        content: aiResponse as any, // Cast to any to handle both string and object
-        createdAt: serverTimestamp(),
-    };
-    await addDoc(messagesCollectionRef, aiMessage);
-
-    revalidatePath(`/dashboard?caseId=${caseId}`);
-    return { success: true };
-
-  } catch (error: any) {
-    console.error("Error in handleUserQuery:", error);
-    // Determine the path for the error message
-    const path = `users/${userId}/cases/${caseId}/messages`;
+  // No try-catch here, we want errors to be handled by the global listener
+  addDoc(messagesCollectionRef, userMessage).catch((serverError) => {
     const permissionError = new FirestorePermissionError({
-        path: path,
+        path: messagesCollectionRef.path,
         operation: 'create',
+        requestResourceData: userMessage
     });
     errorEmitter.emit('permission-error', permissionError);
-    return { error: "An error occurred while processing your request." };
-  }
+  });
+
+  revalidatePath(`/dashboard?caseId=${caseId}`);
+
+  // We can still proceed with the AI call optimistically
+  const aiResponse = await provideInitialLegalAdvice({ query: queryText });
+
+  const aiMessage = {
+      role: "assistant" as const,
+      content: aiResponse as any,
+      createdAt: serverTimestamp(),
+  };
+  
+  addDoc(messagesCollectionRef, aiMessage).catch((serverError) => {
+      const permissionError = new FirestorePermissionError({
+        path: messagesCollectionRef.path,
+        operation: 'create',
+        requestResourceData: aiMessage
+      });
+      errorEmitter.emit('permission-error', permissionError);
+  });
+
+  revalidatePath(`/dashboard?caseId=${caseId}`);
+  return { success: true };
 }
