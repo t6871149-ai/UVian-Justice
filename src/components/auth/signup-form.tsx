@@ -39,6 +39,21 @@ export function SignUpForm() {
     },
   });
 
+  const handleAuthSuccess = async (user: { uid: string; email: string | null; displayName?: string | null; photoURL?: string | null; }) => {
+    await createUserDocument({
+      uid: user.uid,
+      email: user.email,
+      displayName: user.displayName,
+      photoURL: user.photoURL,
+    });
+    toast({
+      title: "Success!",
+      description: "Your account has been created.",
+    });
+     // Redirect is handled by the parent client component
+  };
+
+
   const onSubmit = (values: z.infer<typeof SignUpSchema>) => {
     startTransition(async () => {
       try {
@@ -47,20 +62,7 @@ export function SignUpForm() {
           values.email,
           values.password
         );
-        const user = userCredential.user;
-
-        await createUserDocument({
-          uid: user.uid,
-          email: user.email,
-          displayName: user.displayName,
-          photoURL: user.photoURL,
-        });
-
-        toast({
-          title: "Success!",
-          description: "Your account has been created.",
-        });
-        // Redirect is handled by the parent client component
+        await handleAuthSuccess(userCredential.user);
       } catch (error: any) {
         toast({
           title: "Sign Up Failed",
@@ -76,19 +78,7 @@ export function SignUpForm() {
       try {
         const provider = new GoogleAuthProvider();
         const userCredential = await signInWithPopup(auth, provider);
-        const user = userCredential.user;
-
-        await createUserDocument({
-          uid: user.uid,
-          email: user.email,
-          displayName: user.displayName,
-          photoURL: user.photoURL,
-        });
-
-        toast({
-          title: "Success",
-          description: "You are now logged in with Google.",
-        });
+        await handleAuthSuccess(userCredential.user);
       } catch (error: any) {
         toast({
           title: "Google Sign-In Failed",

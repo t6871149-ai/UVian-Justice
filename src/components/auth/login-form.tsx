@@ -39,25 +39,26 @@ export function LoginForm() {
     },
   });
 
+  const handleAuthSuccess = async (user: { uid: string; email: string | null; displayName?: string | null; photoURL?: string | null; }) => {
+    // This will create the document if it doesn't exist, or merge it if it does.
+    await createUserDocument({
+      uid: user.uid,
+      email: user.email,
+      displayName: user.displayName,
+      photoURL: user.photoURL,
+    });
+    toast({
+      title: "Success",
+      description: "You are now logged in.",
+    });
+    // Redirect is handled by the parent client component
+  };
+
   const onSubmit = (values: z.infer<typeof LoginSchema>) => {
     startTransition(async () => {
       try {
         const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
-        const user = userCredential.user;
-
-        // Ensure user document exists
-        await createUserDocument({
-          uid: user.uid,
-          email: user.email,
-          displayName: user.displayName,
-          photoURL: user.photoURL,
-        });
-
-        toast({
-          title: "Success",
-          description: "You are now logged in.",
-        });
-        // Redirect is handled by the parent client component
+        await handleAuthSuccess(userCredential.user);
       } catch (error: any) {
          if (error.code === 'auth/invalid-credential') {
             toast({
@@ -81,20 +82,7 @@ export function LoginForm() {
        try {
         const provider = new GoogleAuthProvider();
         const userCredential = await signInWithPopup(auth, provider);
-        const user = userCredential.user;
-
-        // Create or merge user document in Firestore
-        await createUserDocument({
-          uid: user.uid,
-          email: user.email,
-          displayName: user.displayName,
-          photoURL: user.photoURL,
-        });
-
-        toast({
-          title: "Success",
-          description: "You are now logged in with Google.",
-        });
+        await handleAuthSuccess(userCredential.user);
       } catch (error: any) {
         toast({
           title: "Google Sign-In Failed",
