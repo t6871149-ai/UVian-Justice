@@ -1,3 +1,4 @@
+
 "use server";
 
 import { signOut } from "firebase/auth";
@@ -7,7 +8,7 @@ import { revalidatePath } from "next/cache";
 import { errorEmitter } from "@/lib/error-emitter";
 import { FirestorePermissionError } from "@/lib/firebase-errors";
 
-// This function is kept as a server action, but will be called from the client after a successful signup.
+// This function is kept as a server action, but will be called from the client after a successful signup or login.
 export async function createUserDocument(user: { uid: string; email: string | null; displayName?: string | null; photoURL?: string | null; }) {
     const userDocRef = doc(db, "users", user.uid);
     const userData = {
@@ -20,10 +21,12 @@ export async function createUserDocument(user: { uid: string; email: string | nu
     };
 
     try {
+        // Use await to ensure the database operation completes or throws an error.
         await setDoc(userDocRef, userData, { merge: true });
         revalidatePath('/dashboard');
         return { success: "User document created/updated successfully!" };
     } catch (serverError: any) {
+        // Construct the detailed permission error and emit it.
         const permissionError = new FirestorePermissionError({
             path: userDocRef.path,
             operation: 'create', // This covers both create and merge/update for this logic
