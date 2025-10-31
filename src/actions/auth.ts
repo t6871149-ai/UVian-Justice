@@ -2,7 +2,7 @@
 
 import { signOut } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
-import { doc, setDoc, updateDoc } from "firebase/firestore";
+import { doc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { revalidatePath } from "next/cache";
 import { errorEmitter } from "@/lib/error-emitter";
 import { FirestorePermissionError } from "@/lib/firebase-errors";
@@ -15,21 +15,23 @@ export async function createUserDocument(user: { uid: string; email: string | nu
       email: user.email,
       displayName: user.displayName || null,
       photoURL: user.photoURL || null,
-      createdAt: new Date(),
+      createdAt: serverTimestamp(),
       acceptedDisclaimer: false,
     };
 
-    setDoc(userDocRef, userData, { merge: true }).catch((serverError) => {
+    try {
+        await setDoc(userDocRef, userData, { merge: true });
+        revalidatePath('/dashboard');
+        return { success: "User document created/updated successfully!" };
+    } catch (serverError: any) {
         const permissionError = new FirestorePermissionError({
             path: userDocRef.path,
-            operation: 'create',
+            operation: 'create', // or 'update' if we could distinguish
             requestResourceData: userData,
         });
         errorEmitter.emit('permission-error', permissionError);
-    });
-
-    revalidatePath('/dashboard');
-    return { success: "User document created successfully!" };
+        return { error: `Failed to create user document: ${serverError.message}` };
+    }
 }
 
 
