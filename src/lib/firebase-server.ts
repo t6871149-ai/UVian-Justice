@@ -1,22 +1,23 @@
 import "server-only";
-import * as admin from "firebase-admin";
+import { initializeApp, getApps, credential } from "firebase-admin/app";
+import { getAuth } from "firebase-admin/auth";
+import { getFirestore } from "firebase-admin/firestore";
 
 import { env } from "@/env";
-import { getApps } from "firebase-admin/app";
 
-export const firebaseAdmin =
+const firebaseAdminApp =
   getApps().find((app) => app?.name === "firebase-admin") ??
-  admin.initializeApp(
+  initializeApp(
     {
-      credential: admin.credential.cert({
+      credential: credential.cert({
         projectId: env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
         clientEmail: env.FIREBASE_CLIENT_EMAIL,
         // Replace escaped newlines from the environment variable
-        privateKey: env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
+        privateKey: env.FIRE_PRIVATE_KEY.replace(/\\n/g, "\n"),
       }),
     },
     "firebase-admin"
   );
 
-export const auth = admin.auth(firebaseAdmin);
-export const db = admin.firestore(firebaseAdmin);
+export const auth = getAuth(firebaseAdminApp);
+export const db = getFirestore(firebaseAdminApp);

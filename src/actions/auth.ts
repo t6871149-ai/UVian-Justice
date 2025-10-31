@@ -1,7 +1,7 @@
 "use server";
 
 import { signOut } from "firebase/auth";
-import { auth } from "@/lib/firebase"; // Keep client auth for signOut
+import { auth as clientAuth } from "@/lib/firebase"; // Keep client auth for signOut
 import { db } from "@/lib/firebase-server"; // Use ADMIN DB for writes
 import { FieldValue } from "firebase-admin/firestore";
 import { revalidatePath } from "next/cache";
@@ -32,7 +32,7 @@ export async function createUserDocument(user: { uid: string; email: string | nu
 
 export async function signOutUser() {
   try {
-    await signOut(auth);
+    await signOut(clientAuth);
     revalidatePath('/');
     return { success: "Signed out successfully!" };
   } catch (error: any) {
