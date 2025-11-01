@@ -236,7 +236,7 @@ export function DashboardClient() {
                 </SidebarContent>
             </Sidebar>
             <SidebarInset className="flex flex-col">
-              <main className="flex-1 flex flex-col overflow-hidden">
+              <main className="flex-1 flex flex-col overflow-y-auto">
                   <ChatWindow 
                       messages={state.messages} 
                       isLoading={isQueryPending || state.isMessagesLoading} 
