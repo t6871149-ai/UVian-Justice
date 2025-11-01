@@ -1,3 +1,4 @@
+
 "use server";
 
 import { db } from "@/lib/firebase-server"; // Use ADMIN DB for writes
@@ -20,6 +21,7 @@ export async function createCase(userId: string, title: string, details: string)
     
     try {
         const docRef = await caseCollectionRef.add(caseData);
+        // Revalidate the dashboard path to update the case list
         revalidatePath('/dashboard');
         return { success: true, caseId: docRef.id };
     } catch (serverError: any) {
@@ -44,8 +46,8 @@ export async function handleUserQuery(userId: string, caseId: string, queryText:
 
   // The server action will now handle writing the user message
   try {
+    // No need to revalidate here; onSnapshot handles it.
     await messagesCollectionRef.add(userMessage);
-    revalidatePath(`/dashboard?caseId=${caseId}`);
   } catch (serverError: any) {
     console.error("Error creating user message:", serverError);
     // Don't rethrow here, as we want to continue to the AI call
@@ -62,8 +64,8 @@ export async function handleUserQuery(userId: string, caseId: string, queryText:
   
   // The server action will also handle writing the AI message
   try {
+    // No need to revalidate here; onSnapshot handles it.
     await messagesCollectionRef.add(aiMessage);
-    revalidatePath(`/dashboard?caseId=${caseId}`);
   } catch (serverError: any) {
      console.error("Error creating AI message:", serverError);
      // Don't rethrow, just log it. The user will see their message.
