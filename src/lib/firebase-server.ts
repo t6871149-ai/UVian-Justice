@@ -1,7 +1,8 @@
 import "server-only";
-import { initializeApp, getApps, credential } from "firebase-admin/app";
+import { initializeApp, getApps } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
+import { credential } from "firebase-admin";
 
 import { env } from "@/env";
 
@@ -13,7 +14,7 @@ const firebaseAdminApp =
         projectId: env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
         clientEmail: env.FIREBASE_CLIENT_EMAIL,
         // Replace escaped newlines from the environment variable
-        privateKey: env.FIRE_PRIVATE_KEY.replace(/\\n/g, "\n"),
+        privateKey: env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
       }),
     },
     "firebase-admin"
