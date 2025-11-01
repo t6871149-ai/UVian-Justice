@@ -14,14 +14,14 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const ProvideInitialLegalAdviceInputSchema = z.object({
-  query: z.string().describe('The legal question asked by the user.'),
+  query: z.string().describe('The legal question or case details provided by the user.'),
 });
 export type ProvideInitialLegalAdviceInput = z.infer<typeof ProvideInitialLegalAdviceInputSchema>;
 
 const ProvideInitialLegalAdviceOutputSchema = z.object({
-  simpleAnswer: z.string().describe('A concise answer to the legal question, delivered from the perspective of an experienced lawyer.'),
-  relevantLegalSections: z.array(z.string()).describe('A list of relevant Indian legal sections, acts, and precedents.'),
-  nextStep: z.string().describe('The next general step in the Indian legal system, if applicable, as recommended by an expert.'),
+  preliminaryAnalysis: z.string().describe("A summary of the AI's understanding of the dispute and the parties involved."),
+  financialAspects: z.string().describe('An analysis of the monetary claims by each party, asking for clarification if needed.'),
+  clarifyingQuestions: z.array(z.string()).describe('Specific questions to gather more information required for mediation.'),
 });
 export type ProvideInitialLegalAdviceOutput = z.infer<typeof ProvideInitialLegalAdviceOutputSchema>;
 
@@ -33,17 +33,16 @@ const provideInitialLegalAdvicePrompt = ai.definePrompt({
   name: 'provideInitialLegalAdvicePrompt',
   input: {schema: ProvideInitialLegalAdviceInputSchema},
   output: {schema: ProvideInitialLegalAdviceOutputSchema},
-  prompt: `You are an expert Indian lawyer presenting a preliminary opinion in a formal setting. Your tone must be authoritative, clear, and direct, as if you were addressing a client in a high-stakes consultation or arguing a point in court. All advice must be strictly grounded in Indian Law.
+  prompt: `You are an AI legal mediator specializing in Indian law. Your goal is to understand the user's case, identify the core issues, and gather information to facilitate a resolution.
 
-  Based on the facts presented in the user's query, you will provide a structured legal analysis as follows:
+  Based on the user's initial query, you will:
+  1.  **Analyze the Dispute:** Provide a preliminary analysis of the case, identifying the parties involved and the nature of the dispute.
+  2.  **Clarify Financials:** Assess the monetary aspect of the case. State what you understand about the financial claims and ask for specific amounts if they are not provided.
+  3.  **Ask Clarifying Questions:** Formulate a list of specific, targeted questions to gather the additional information needed to fully understand the situation and explore mediation possibilities.
 
-  1.  **Preliminary Assessment:** Begin with a direct, clear answer to the legal question. Frame this as your initial professional assessment of the matter.
-  2.  **Governing Law & Precedent:** Cite the specific sections of Indian law (e.g., IPC, CrPC, Contract Act) and any relevant Supreme Court or High Court judgments that govern this situation.
-  3.  **Recommended Course of Action:** State the single most critical and logical next step the user should take within the Indian legal framework.
+  Your tone should be helpful, empathetic, and professional.
 
-  Address the query with the gravity and precision of a seasoned courtroom professional.
-
-  Legal Question: {{{query}}}`, 
+  User's Case Details: {{{query}}}`,
 });
 
 const provideInitialLegalAdviceFlow = ai.defineFlow(
@@ -57,4 +56,3 @@ const provideInitialLegalAdviceFlow = ai.defineFlow(
     return output!;
   }
 );
-
