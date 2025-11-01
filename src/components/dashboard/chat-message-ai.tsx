@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { TypingEffect } from "../ui/typing-effect";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface ChatMessageAIProps {
   content: {
@@ -19,10 +19,22 @@ interface ChatMessageAIProps {
     relevantLegalSections: string[];
     nextStep: string;
   } | string;
+  isLatestMessage: boolean; // Prop to identify the last message
 }
 
-export function ChatMessageAI({ content }: ChatMessageAIProps) {
-  const [isTypingComplete, setIsTypingComplete] = useState(false);
+export function ChatMessageAI({ content, isLatestMessage }: ChatMessageAIProps) {
+  const [isTypingComplete, setIsTypingComplete] = useState(!isLatestMessage);
+
+  useEffect(() => {
+    // If this message is not the latest one, we should consider typing complete immediately.
+    if (!isLatestMessage) {
+      setIsTypingComplete(true);
+    } else {
+        // If it becomes the latest message, reset typing effect.
+        setIsTypingComplete(false);
+    }
+  }, [isLatestMessage, content]);
+
 
   if (typeof content === 'string' || !content.simpleAnswer) {
     // Handle legacy string content or incomplete objects
@@ -53,11 +65,15 @@ export function ChatMessageAI({ content }: ChatMessageAIProps) {
       <div className="grid gap-1 flex-1">
         <p className="font-semibold">Nyay Sahayak AI</p>
         <div className="bg-card p-4 rounded-lg border prose prose-sm max-w-none">
-            <TypingEffect
-              text={content.simpleAnswer}
-              className="lead"
-              onComplete={() => setIsTypingComplete(true)}
-            />
+            {isLatestMessage ? (
+                 <TypingEffect
+                    text={content.simpleAnswer}
+                    className="lead"
+                    onComplete={() => setIsTypingComplete(true)}
+                />
+            ) : (
+                <p className="lead">{content.simpleAnswer}</p>
+            )}
 
             {isTypingComplete && (
                 <Accordion type="single" collapsible className="w-full mt-4 animate-in fade-in-50 duration-500">

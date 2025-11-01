@@ -197,15 +197,16 @@ export function DashboardClient() {
   const handleSendMessage = (messageText: string) => {
     if (!user || !selectedCaseId) return;
 
+    // Optimistically add user message to the UI immediately
     const optimisticMessage: ChatMessage = {
       id: `optimistic-${Date.now()}`,
       role: "user",
       content: messageText,
       createdAt: new Date(),
     };
-
     dispatch({ type: "ADD_OPTIMISTIC_MESSAGE", payload: optimisticMessage });
 
+    // Then, call the server action in the background
     startQueryTransition(async () => {
       await handleUserQuery(user.uid, selectedCaseId, messageText);
     });

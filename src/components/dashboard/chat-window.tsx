@@ -17,18 +17,29 @@ interface ChatWindowProps {
 
 export function ChatWindow({ messages, isLoading, caseSelected, onNewCase }: ChatWindowProps) {
   const viewportRef = useRef<HTMLDivElement>(null);
+  const isAtBottom = useRef(true);
+
+  const handleScroll = () => {
+    const viewport = viewportRef.current;
+    if (viewport) {
+      const { scrollHeight, scrollTop, clientHeight } = viewport;
+      // Consider it "at bottom" if it's within a few pixels, to account for rounding.
+      isAtBottom.current = scrollHeight - scrollTop - clientHeight < 5;
+    }
+  };
 
   useEffect(() => {
-    if (viewportRef.current) {
-      viewportRef.current.scrollTo({
-        top: viewportRef.current.scrollHeight,
-        behavior: "smooth",
-      });
+    const viewport = viewportRef.current;
+    if (viewport && isAtBottom.current) {
+        viewport.scrollTo({
+            top: viewport.scrollHeight,
+            behavior: "smooth",
+        });
     }
   }, [messages, isLoading]);
 
   return (
-    <ScrollArea className="flex-1 p-4" viewportRef={viewportRef}>
+    <ScrollArea className="flex-1 p-4" viewportRef={viewportRef} onScroll={handleScroll}>
       <div className="space-y-6 max-w-4xl mx-auto">
         {!caseSelected && !isLoading ? (
             <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground pt-20 animate-in fade-in-50 duration-500">
@@ -41,8 +52,12 @@ export function ChatWindow({ messages, isLoading, caseSelected, onNewCase }: Cha
                 </Button>
             </div>
         ) : (
-          messages.map((message) => (
-            <ChatMessage key={message.id} message={message} />
+          messages.map((message, index) => (
+            <ChatMessage 
+                key={message.id} 
+                message={message} 
+                isLatestMessage={index === messages.length - 1}
+            />
           ))
         )}
         {isLoading && messages.length === 0 && (
@@ -65,16 +80,24 @@ export function ChatWindow({ messages, isLoading, caseSelected, onNewCase }: Cha
         )}
         {isLoading && messages.length > 0 && (
              <div className="flex items-start gap-4 animate-in fade-in-0 slide-in-from-bottom-4 duration-500">
-             <Skeleton className="h-10 w-10 rounded-full flex-shrink-0 flex items-center justify-center">
-                <Bot className="text-muted-foreground" />
-             </Skeleton>
-            <div className="space-y-2 flex-1 pt-2">
-              <Skeleton className="h-4 w-24" />
-              <Skeleton className="h-16 w-3/4" />
+                <Avatar>
+                    <AvatarFallback className="bg-secondary text-secondary-foreground">
+                        <Bot />
+                    </AvatarFallback>
+                </Avatar>
+                <div className="grid gap-1 flex-1 pt-2">
+                    <p className="font-semibold">Nyay Sahayak AI</p>
+                    <div className="bg-card p-4 rounded-lg border flex items-center space-x-2">
+                        <div className="w-2 h-2 bg-muted-foreground rounded-full animate-pulse"></div>
+                        <div className="w-2 h-2 bg-muted-foreground rounded-full animate-pulse delay-150"></div>
+                        <div className="w-2 h-2 bg-muted-foreground rounded-full animate-pulse delay-300"></div>
+                    </div>
+                </div>
             </div>
-          </div>
         )}
       </div>
     </ScrollArea>
   );
 }
+// Add Avatar and AvatarFallback to ChatWindow for the thinking indicator
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
