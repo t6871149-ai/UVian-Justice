@@ -3,7 +3,7 @@
 import { useAuth } from "@/context/auth-context";
 import { useRouter, useSearchParams } from "next/navigation";
 import React, { useEffect, useReducer, useTransition, useRef, useState } from "react";
-import { collection, onSnapshot, query, orderBy, doc } from "firebase/firestore";
+import { collection, onSnapshot, query, orderBy, doc, addDoc, FieldValue, serverTimestamp } from "firebase/firestore";
 import { getFirebaseClient } from "@/lib/firebase";
 
 import { Skeleton } from "@/components/ui/skeleton";
@@ -188,9 +188,30 @@ export function DashboardClient() {
   }
 
   const handleSendMessage = (message: string) => {
-    if(!user || !selectedCaseId) return;
+    if (!user || !selectedCaseId || !db) return;
 
     startQueryTransition(async () => {
+      // 1. Add user message to Firestore from the client
+      const messagesCollectionRef = collection(db, `users/${user.uid}/cases/${selectedCaseId}/messages`);
+      const userMessage = {
+        role: "user" as const,
+        content: message,
+        createdAt: serverTimestamp(),
+      };
+      
+      try {
+        await addDoc(messagesCollectionRef, userMessage);
+      } catch (clientError) {
+        console.error("Error sending message:", clientError);
+        toast({
+          title: "Send Error",
+          description: "Could not send your message. Please try again.",
+          variant: "destructive",
+        });
+        return; // Stop if user message fails to send
+      }
+
+      // 2. Call server action to get AI response
       await handleUserQuery(user.uid, selectedCaseId, message);
     });
   };

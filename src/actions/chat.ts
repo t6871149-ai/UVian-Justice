@@ -36,40 +36,27 @@ export async function handleUserQuery(userId: string, caseId: string, queryText:
     return { error: "User or case not identified." };
   }
 
-  const messagesCollectionRef = db.collection(`users/${userId}/cases/${caseId}/messages`);
-  
-  const userMessage = {
-    role: "user" as const,
-    content: queryText,
-    createdAt: FieldValue.serverTimestamp(),
-  };
+  // This server action is now only responsible for getting the AI response
+  // and writing it to Firestore. The user's message is added on the client.
 
-  // The server action will now handle writing the user message
   try {
-    // No need to revalidate here; onSnapshot handles it.
-    await messagesCollectionRef.add(userMessage);
-  } catch (serverError: any) {
-    console.error("Error creating user message:", serverError);
-    // Don't rethrow here, as we want to continue to the AI call
-  }
+    const aiResponse = await provideInitialLegalAdvice({ query: queryText });
 
-  // We can still proceed with the AI call optimistically
-  const aiResponse = await provideInitialLegalAdvice({ query: queryText });
-
-  const aiMessage = {
-      role: "assistant" as const,
-      content: aiResponse as any,
-      createdAt: FieldValue.serverTimestamp(),
-  };
-  
-  // The server action will also handle writing the AI message
-  try {
-    // No need to revalidate here; onSnapshot handles it.
+    const aiMessage = {
+        role: "assistant" as const,
+        content: aiResponse as any,
+        createdAt: FieldValue.serverTimestamp(),
+    };
+    
+    const messagesCollectionRef = db.collection(`users/${userId}/cases/${caseId}/messages`);
     await messagesCollectionRef.add(aiMessage);
-  } catch (serverError: any) {
-     console.error("Error creating AI message:", serverError);
-     // Don't rethrow, just log it. The user will see their message.
-  }
 
-  return { success: true };
+    // No revalidation needed here, as onSnapshot on the client handles UI updates.
+    return { success: true };
+
+  } catch (serverError: any) {
+     console.error("Error getting AI response or writing message:", serverError);
+     // We can optionally return an error to the client to be displayed.
+     return { error: "The AI assistant failed to respond. Please try again." };
+  }
 }
