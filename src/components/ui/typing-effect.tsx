@@ -10,7 +10,7 @@ interface TypingEffectProps {
   onComplete?: () => void;
 }
 
-export function TypingEffect({ text, speed = 20, className, onComplete }: TypingEffectProps) {
+export function TypingEffect({ text, speed = 15, className, onComplete }: TypingEffectProps) {
   const [displayedText, setDisplayedText] = useState('');
 
   useEffect(() => {
@@ -19,8 +19,10 @@ export function TypingEffect({ text, speed = 20, className, onComplete }: Typing
 
     const typingInterval = setInterval(() => {
       if (i < text.length) {
-        setDisplayedText(prev => prev + text.charAt(i));
-        i++;
+        // Type in small, slightly random chunks for a more natural feel
+        const chunk = text.substring(i, i + Math.floor(Math.random() * 3) + 1);
+        setDisplayedText(prev => prev + chunk);
+        i += chunk.length;
       } else {
         clearInterval(typingInterval);
         if (onComplete) {
