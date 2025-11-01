@@ -4,7 +4,7 @@ import { useAuth } from "@/context/auth-context";
 import { useRouter, useSearchParams } from "next/navigation";
 import React, { useEffect, useReducer, useTransition, useRef, useState } from "react";
 import { collection, onSnapshot, query, orderBy, doc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { getFirebaseClient } from "@/lib/firebase";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { Header } from "./header";
@@ -70,6 +70,7 @@ export function DashboardClient() {
   const [isQueryPending, startQueryTransition] = useTransition();
   const [isDisclaimerPending, startDisclaimerTransition] = useTransition();
   const [isNewCasePending, startNewCaseTransition] = useTransition();
+  const { db } = getFirebaseClient();
 
   const [state, dispatch] = useReducer(dashboardReducer, {
     messages: [],
@@ -92,7 +93,7 @@ export function DashboardClient() {
   }, [user, authLoading, router]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !db) return;
 
     dispatch({ type: "SET_PROFILE_LOADING", payload: true });
     dispatch({ type: "SET_CASES_LOADING", payload: true });
@@ -128,10 +129,10 @@ export function DashboardClient() {
       unsubProfile();
       unsubCases();
     };
-  }, [user, router, selectedCaseId]);
+  }, [user, router, selectedCaseId, db]);
 
   useEffect(() => {
-    if (!user || !selectedCaseId) {
+    if (!user || !selectedCaseId || !db) {
         dispatch({ type: "SET_MESSAGES", payload: [] });
         dispatch({ type: "SET_MESSAGES_LOADING", payload: false });
         return;
@@ -156,7 +157,7 @@ export function DashboardClient() {
     });
 
     return () => unsubMessages();
-  }, [user, selectedCaseId]);
+  }, [user, selectedCaseId, db]);
 
 
   const onDisclaimerAccept = () => {

@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { onAuthStateChanged, type User } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { getFirebaseClient } from "@/lib/firebase";
 
 interface AuthContextType {
   user: User | null;
@@ -19,6 +19,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const { auth } = getFirebaseClient();
+    if (!auth) {
+        // Firebase is not initialized on the server.
+        // We will wait for the client-side to take over.
+        setLoading(false);
+        return;
+    };
+    
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
       setLoading(false);

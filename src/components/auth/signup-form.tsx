@@ -24,11 +24,12 @@ import {
   signInWithPopup,
   GoogleAuthProvider,
 } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { getFirebaseClient } from "@/lib/firebase";
 
 export function SignUpForm() {
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
+  const { auth } = getFirebaseClient();
 
   const form = useForm<z.infer<typeof SignUpSchema>>({
     resolver: zodResolver(SignUpSchema),
@@ -55,6 +56,7 @@ export function SignUpForm() {
 
 
   const onSubmit = (values: z.infer<typeof SignUpSchema>) => {
+    if (!auth) return;
     startTransition(async () => {
       try {
         const userCredential = await createUserWithEmailAndPassword(
@@ -74,6 +76,7 @@ export function SignUpForm() {
   };
 
   const onGoogleSignIn = () => {
+    if (!auth) return;
     startTransition(async () => {
       try {
         const provider = new GoogleAuthProvider();
