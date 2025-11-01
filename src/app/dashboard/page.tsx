@@ -1,3 +1,4 @@
+
 import { DashboardClient } from "@/components/dashboard/dashboard-client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Suspense } from "react";
