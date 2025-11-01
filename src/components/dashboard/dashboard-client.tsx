@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useAuth } from "@/context/auth-context";
@@ -88,7 +89,7 @@ export function DashboardClient() {
   
   useEffect(() => {
     if (!authLoading && !user) {
-      router.replace("/");
+      router.replace("/login");
     }
   }, [user, authLoading, router]);
 

@@ -1,3 +1,4 @@
+
 import { type NextRequest } from "next/server";
 import {
   getTokens,
@@ -5,13 +6,13 @@ import {
 } from "next-firebase-auth-edge";
 import { cookies } from "next/headers";
 
-const unauthenticatedPaths = ["/", "/signup"];
+const unauthenticatedPaths = ["/", "/login", "/signup"];
 
 export async function middleware(request: NextRequest) {
     const path = request.nextUrl.pathname;
     
     // Check if the path requires authentication
-    if (unauthenticatedPaths.includes(path)) {
+    if (unauthenticatedPaths.some(p => path.startsWith(p))) {
         return;
     }
     
