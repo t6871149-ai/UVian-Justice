@@ -7,13 +7,10 @@ interface ChatMessageProps {
 }
 
 export function ChatMessage({ message }: ChatMessageProps) {
-  if (message.role === "user") {
-    return <ChatMessageUser content={message.content as string} />;
-  }
-  
-  if (message.role === "assistant") {
-    return <ChatMessageAI content={message.content as any} />;
-  }
-
-  return null;
+  return (
+    <div className="animate-in fade-in-0 slide-in-from-bottom-4 duration-500">
+      {message.role === "user" && <ChatMessageUser content={message.content as string} />}
+      {message.role === "assistant" && <ChatMessageAI content={message.content as any} />}
+    </div>
+  )
 }

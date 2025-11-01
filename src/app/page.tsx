@@ -37,13 +37,13 @@ export default function HomePage() {
                 />
             )}
             <div className="absolute inset-0 bg-black/30"></div>
-            <div className="relative z-10 px-4 text-primary-foreground">
+            <div className="relative z-10 px-4 text-primary-foreground animate-in fade-in-50 slide-in-from-bottom-5 duration-500">
                 <h2 className="text-4xl md:text-6xl font-bold font-headline">Your AI Legal Assistant for Indian Law</h2>
                 <p className="mt-4 max-w-2xl mx-auto text-lg md:text-xl">
                     Get initial guidance, understand complex legal sections, and draft notices with the power of AI, grounded in the Indian legal framework.
                 </p>
                 <div className="mt-8">
-                    <Button size="lg" asChild>
+                    <Button size="lg" asChild className="transition-transform duration-200 hover:scale-105">
                         <Link href="/signup">
                             Get Started Free
                             <ArrowRight className="ml-2"/>
@@ -52,19 +52,19 @@ export default function HomePage() {
                 </div>
             </div>
         </section>
-        <section className="py-16 bg-background">
+        <section className="py-16 bg-background animate-in fade-in-50 slide-in-from-bottom-10 duration-700">
             <div className="container mx-auto px-4">
-                <h3 className="text-3xl font-bold text-center mb-8">Features</h3>
+                <h3 className="text-3xl font-bold text-center mb-12">Features</h3>
                 <div className="grid md:grid-cols-3 gap-8 text-center">
-                    <div className="p-6 border rounded-lg shadow-sm bg-card">
+                    <div className="p-6 border rounded-lg shadow-sm bg-card transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
                         <h4 className="font-semibold text-xl mb-2">Initial Legal Advice</h4>
                         <p className="text-muted-foreground">Ask legal questions and receive preliminary advice based on Indian law.</p>
                     </div>
-                    <div className="p-6 border rounded-lg shadow-sm bg-card">
+                    <div className="p-6 border rounded-lg shadow-sm bg-card transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
                         <h4 className="font-semibold text-xl mb-2">Document Summarization</h4>
                         <p className="text-muted-foreground">Upload and summarize legal documents to extract key points.</p>
                     </div>
-                    <div className="p-6 border rounded-lg shadow-sm bg-card">
+                    <div className="p-6 border rounded-lg shadow-sm bg-card transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
                         <h4 className="font-semibold text-xl mb-2">Draft Legal Notices</h4>
                         <p className="text-muted-foreground">Generate draft legal notices for various disputes and issues.</p>
                     </div>

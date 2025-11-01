@@ -8,19 +8,19 @@ body {
 
 @layer base {
   :root {
-    --background: 208 100% 97%;
+    --background: 210 40% 98%;
     --foreground: 215 28% 17%;
-    --card: 208 100% 100%;
+    --card: 210 40% 100%;
     --card-foreground: 215 28% 17%;
-    --popover: 208 100% 100%;
+    --popover: 210 40% 100%;
     --popover-foreground: 215 28% 17%;
     --primary: 211 53% 47%;
     --primary-foreground: 210 40% 98%;
-    --secondary: 197 71% 73%;
+    --secondary: 210 40% 96.1%;
     --secondary-foreground: 215 28% 17%;
-    --muted: 210 40% 96.1%;
+    --muted: 210 40% 94%;
     --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 194 25% 56%;
+    --accent: 210 40% 90%;
     --accent-foreground: 215 28% 17%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
@@ -35,24 +35,24 @@ body {
     --radius: 0.5rem;
   }
   .dark {
-    --background: 215 28% 17%;
+    --background: 215 28% 12%;
     --foreground: 210 40% 98%;
-    --card: 215 28% 17%;
+    --card: 215 28% 17.5%;
     --card-foreground: 210 40% 98%;
-    --popover: 215 28% 17%;
+    --popover: 215 28% 17.5%;
     --popover-foreground: 210 40% 98%;
     --primary: 210 40% 98%;
     --primary-foreground: 211 53% 47%;
-    --secondary: 217.2 32.6% 17.5%;
+    --secondary: 217.2 32.6% 22.5%;
     --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
+    --muted: 217.2 32.6% 27.5%;
     --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
+    --accent: 217.2 32.6% 22.5%;
     --accent-foreground: 210 40% 98%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
+    --border: 217.2 32.6% 25%;
+    --input: 217.2 32.6% 25%;
     --ring: 212.7 26.8% 83.9%;
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
@@ -68,5 +68,22 @@ body {
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@layer components {
+  .fade-in-up {
+    animation: fade-in-up 0.5s ease-out forwards;
+  }
+
+  @keyframes fade-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 }

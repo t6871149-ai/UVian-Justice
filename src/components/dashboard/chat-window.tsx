@@ -31,7 +31,7 @@ export function ChatWindow({ messages, isLoading, caseSelected, onNewCase }: Cha
     <ScrollArea className="flex-1 p-4" viewportRef={viewportRef}>
       <div className="space-y-6 max-w-4xl mx-auto">
         {!caseSelected && !isLoading ? (
-            <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground pt-20">
+            <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground pt-20 animate-in fade-in-50 duration-500">
                 <FileText className="h-12 w-12 mb-4" />
                 <h2 className="text-xl font-semibold">No Case Selected</h2>
                 <p className="mb-4">Select a case from the sidebar or create a new one to begin.</p>
@@ -64,8 +64,8 @@ export function ChatWindow({ messages, isLoading, caseSelected, onNewCase }: Cha
             </>
         )}
         {isLoading && messages.length > 0 && (
-             <div className="flex items-start gap-4">
-             <Skeleton className="h-10 w-10 rounded-full flex items-center justify-center">
+             <div className="flex items-start gap-4 animate-in fade-in-0 slide-in-from-bottom-4 duration-500">
+             <Skeleton className="h-10 w-10 rounded-full flex-shrink-0 flex items-center justify-center">
                 <Bot className="text-muted-foreground" />
              </Skeleton>
             <div className="space-y-2 flex-1 pt-2">
