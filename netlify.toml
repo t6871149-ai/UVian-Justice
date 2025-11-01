@@ -1,12 +1,7 @@
 # This file configures the build settings for Netlify.
 [build]
-  # This setting tells Netlify's secret scanner to ignore specific public
-  # environment variables that are intentionally included in the client-side bundle.
-  # For more information: https://docs.netlify.com/configure-builds/manage-dependencies/#secrets-scanning
-  [build.environment]
-    SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_FIREBASE_API_KEY,NEXT_PUBLIC_FIREBASE_APP_ID,NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,NEXT_PUBLIC_FIREBASE_PROJECT_ID,NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET"
+  command = "npm run build"
+  publish = ".next"
 
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
