@@ -109,7 +109,11 @@ export function DashboardClient() {
     const caseCollectionRef = collection(db, `users/${user.uid}/cases`);
     const caseQuery = query(caseCollectionRef, orderBy("createdAt", "desc"));
     const unsubCases = onSnapshot(caseQuery, (snapshot) => {
-        const cases: Case[] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Case));
+        const cases: Case[] = snapshot.docs.map(doc => ({ 
+            id: doc.id, 
+            ...doc.data(),
+            createdAt: (doc.data().createdAt as any)?.toDate() ?? new Date(),
+        } as Case));
         dispatch({ type: "SET_CASES", payload: cases });
         if (!selectedCaseId && cases.length > 0) {
             router.replace(`/dashboard?caseId=${cases[0].id}`);
