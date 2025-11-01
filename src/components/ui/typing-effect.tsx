@@ -14,25 +14,24 @@ export function TypingEffect({ text, speed = 20, className, onComplete }: Typing
   const [displayedText, setDisplayedText] = useState('');
 
   useEffect(() => {
-    setDisplayedText(''); // Reset when text changes
-    if (text) {
-      let i = 0;
-      const typingInterval = setInterval(() => {
-        if (i < text.length) {
-          setDisplayedText(prev => prev + text.charAt(i));
-          i++;
-        } else {
-          clearInterval(typingInterval);
-          if (onComplete) {
-            onComplete();
-          }
-        }
-      }, speed);
+    let i = 0;
+    setDisplayedText(''); // Start fresh
 
-      return () => {
+    const typingInterval = setInterval(() => {
+      if (i < text.length) {
+        setDisplayedText(prev => prev + text.charAt(i));
+        i++;
+      } else {
         clearInterval(typingInterval);
-      };
-    }
+        if (onComplete) {
+          onComplete();
+        }
+      }
+    }, speed);
+
+    return () => {
+      clearInterval(typingInterval);
+    };
   }, [text, speed, onComplete]);
 
   return <p className={className}>{displayedText}</p>;

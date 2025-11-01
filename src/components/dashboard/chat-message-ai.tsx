@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { TypingEffect } from "../ui/typing-effect";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 interface ChatMessageAIProps {
   content: {
@@ -23,17 +23,20 @@ interface ChatMessageAIProps {
 }
 
 export function ChatMessageAI({ content, isLatestMessage }: ChatMessageAIProps) {
+  // If it's not the latest message, it should be complete from the start.
   const [isTypingComplete, setIsTypingComplete] = useState(!isLatestMessage);
 
+  const handleTypingComplete = useCallback(() => {
+    setIsTypingComplete(true);
+  }, []);
+
   useEffect(() => {
-    // If this message is not the latest one, we should consider typing complete immediately.
-    if (!isLatestMessage) {
+    // This effect ensures that if a message is no longer the latest,
+    // it snaps to the completed state.
+    if (!isLatestMessage && !isTypingComplete) {
       setIsTypingComplete(true);
-    } else {
-        // If it becomes the latest message, reset typing effect.
-        setIsTypingComplete(false);
     }
-  }, [isLatestMessage, content]);
+  }, [isLatestMessage, isTypingComplete]);
 
 
   if (typeof content === 'string' || !content.simpleAnswer) {
@@ -65,11 +68,11 @@ export function ChatMessageAI({ content, isLatestMessage }: ChatMessageAIProps) 
       <div className="grid gap-1 flex-1">
         <p className="font-semibold">Nyay Sahayak AI</p>
         <div className="bg-card p-4 rounded-lg border prose prose-sm max-w-none">
-            {isLatestMessage ? (
+            {!isTypingComplete ? (
                  <TypingEffect
                     text={content.simpleAnswer}
                     className="lead"
-                    onComplete={() => setIsTypingComplete(true)}
+                    onComplete={handleTypingComplete}
                 />
             ) : (
                 <p className="lead">{content.simpleAnswer}</p>
