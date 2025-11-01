@@ -36,27 +36,39 @@ export async function handleUserQuery(userId: string, caseId: string, queryText:
     return { error: "User or case not identified." };
   }
 
-  // This server action is now only responsible for getting the AI response
-  // and writing it to Firestore. The user's message is added on the client.
+  const messagesCollectionRef = db.collection(`users/${userId}/cases/${caseId}/messages`);
+  const batch = db.batch();
 
   try {
+    // 1. Create the user's message document
+    const userMessageRef = messagesCollectionRef.doc();
+    const userMessage = {
+        role: "user" as const,
+        content: queryText,
+        createdAt: FieldValue.serverTimestamp(),
+    };
+    batch.set(userMessageRef, userMessage);
+
+    // 2. Get the AI response
     const aiResponse = await provideInitialLegalAdvice({ query: queryText });
 
+    // 3. Create the AI's message document
+    const aiMessageRef = messagesCollectionRef.doc();
     const aiMessage = {
         role: "assistant" as const,
         content: aiResponse as any,
         createdAt: FieldValue.serverTimestamp(),
     };
-    
-    const messagesCollectionRef = db.collection(`users/${userId}/cases/${caseId}/messages`);
-    await messagesCollectionRef.add(aiMessage);
+    batch.set(aiMessageRef, aiMessage);
+
+    // 4. Commit both writes at once
+    await batch.commit();
 
     // No revalidation needed here, as onSnapshot on the client handles UI updates.
     return { success: true };
 
   } catch (serverError: any) {
      console.error("Error getting AI response or writing message:", serverError);
-     // We can optionally return an error to the client to be displayed.
      return { error: "The AI assistant failed to respond. Please try again." };
   }
 }

@@ -3,7 +3,7 @@
 import { useAuth } from "@/context/auth-context";
 import { useRouter, useSearchParams } from "next/navigation";
 import React, { useEffect, useReducer, useTransition, useRef, useState } from "react";
-import { collection, onSnapshot, query, orderBy, doc, addDoc, FieldValue, serverTimestamp } from "firebase/firestore";
+import { collection, onSnapshot, query, orderBy, doc } from "firebase/firestore";
 import { getFirebaseClient } from "@/lib/firebase";
 
 import { Skeleton } from "@/components/ui/skeleton";
@@ -34,6 +34,7 @@ type State = {
 
 type Action =
   | { type: "SET_MESSAGES"; payload: ChatMessage[] }
+  | { type: "ADD_OPTIMISTIC_MESSAGE"; payload: ChatMessage }
   | { type: "SET_CASES"; payload: Case[] }
   | { type: "SET_MESSAGES_LOADING"; payload: boolean }
   | { type: "SET_CASES_LOADING"; payload: boolean }
@@ -45,6 +46,12 @@ function dashboardReducer(state: State, action: Action): State {
   switch (action.type) {
     case "SET_MESSAGES":
       return { ...state, messages: action.payload, isMessagesLoading: false };
+    case "ADD_OPTIMISTIC_MESSAGE":
+      // Avoid adding duplicate optimistic message if it's already being processed
+      if (state.messages.find(m => m.id === action.payload.id)) {
+        return state;
+      }
+      return { ...state, messages: [...state.messages, action.payload] };
     case "SET_CASES":
       return { ...state, cases: action.payload, isCasesLoading: false };
     case "SET_MESSAGES_LOADING":
@@ -187,32 +194,20 @@ export function DashboardClient() {
     });
   }
 
-  const handleSendMessage = (message: string) => {
-    if (!user || !selectedCaseId || !db) return;
+  const handleSendMessage = (messageText: string) => {
+    if (!user || !selectedCaseId) return;
+
+    const optimisticMessage: ChatMessage = {
+      id: `optimistic-${Date.now()}`,
+      role: "user",
+      content: messageText,
+      createdAt: new Date(),
+    };
+
+    dispatch({ type: "ADD_OPTIMISTIC_MESSAGE", payload: optimisticMessage });
 
     startQueryTransition(async () => {
-      // 1. Add user message to Firestore from the client
-      const messagesCollectionRef = collection(db, `users/${user.uid}/cases/${selectedCaseId}/messages`);
-      const userMessage = {
-        role: "user" as const,
-        content: message,
-        createdAt: serverTimestamp(),
-      };
-      
-      try {
-        await addDoc(messagesCollectionRef, userMessage);
-      } catch (clientError) {
-        console.error("Error sending message:", clientError);
-        toast({
-          title: "Send Error",
-          description: "Could not send your message. Please try again.",
-          variant: "destructive",
-        });
-        return; // Stop if user message fails to send
-      }
-
-      // 2. Call server action to get AI response
-      await handleUserQuery(user.uid, selectedCaseId, message);
+      await handleUserQuery(user.uid, selectedCaseId, messageText);
     });
   };
 
